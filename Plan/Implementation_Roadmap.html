@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Sway — Implementation Roadmap</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100;0,9..144,300;0,9..144,700;1,9..144,100;1,9..144,300;1,9..144,700&family=Outfit:wght@200;300;400;600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ── DESIGN TOKENS (70% White · 20% Blue · 10% Black) ── */
+:root {
+  --white:    #FAFAF8;
+  --white2:   #F0EFE9;
+  --white3:   #E2E0D8;
+  --blue:     #1A4BDB;
+  --blue2:    #2B5CE6;
+  --blue3:    #4B7AF8;
+  --blue-lt:  #C7D9FF;
+  --blue-xlt: #EEF3FF;
+  --ink:      #0D0D12;
+  --ink2:     #181820;
+  --mid:      #6B6B7E;
+  --mid2:     #9494A4;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0; padding: 0;
+}
+
+html {
+  font-size: 18px;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--white);
+  color: var(--ink);
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  font-weight: 300;
+  line-height: 1.7;
+  overflow-x: hidden;
+  padding: 80px 20px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── HEADER ── */
+header {
+  text-align: center;
+  max-width: 800px;
+  margin: 0 auto 80px;
+  /* Removed hidden states */
+  opacity: 1;
+  transform: none;
+}
+
+.kicker {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.kicker::before, .kicker::after {
+  content: '';
+  display: block;
+  width: 30px;
+  height: 1px;
+  background: var(--blue);
+}
+
+h1 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(42px, 8vw, 92px);
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  margin-bottom: 24px;
+}
+
+h1 em {
+  font-style: italic;
+  color: var(--blue);
+  font-weight: 300;
+}
+
+.desc {
+  font-size: 20px;
+  color: var(--mid);
+  line-height: 1.6;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* ── ROADMAP TIMELINE ── */
+.roadmap {
+  max-width: 1100px;
+  margin: 0 auto;
+  position: relative;
+  padding: 40px 0;
+}
+
+.roadmap::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  -webkit-transform: translateX(-50%);
+  width: 1px;
+  height: 100%;
+  background: var(--white3);
+  z-index: 0;
+}
+
+.card {
+  position: relative;
+  width: 50%;
+  padding: 40px;
+  z-index: 2;
+  /* Always visible now */
+  opacity: 1;
+  transform: none;
+  -webkit-transform: none;
+}
+
+.card.left { left: 0; text-align: right; padding-right: 60px; }
+.card.right { left: 50%; text-align: left; padding-left: 60px; }
+
+/* Dot on the timeline */
+.card::after {
+  content: '';
+  display: block;
+  position: absolute;
+  top: 60px;
+  width: 16px;
+  height: 16px;
+  background: var(--white);
+  border: 3px solid var(--blue);
+  border-radius: 50%;
+  z-index: 3;
+}
+.card:hover::after {
+  transform: scale(1.4);
+  -webkit-transform: scale(1.4);
+  background: var(--blue);
+}
+.card.left::after { right: -8px; }
+.card.right::after { left: -8px; }
+
+/* The box itself */
+.box {
+  background: var(--white);
+  border: 1px solid var(--white3);
+  border-radius: 4px;
+  padding: 50px 40px;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.4s;
+  -webkit-transition: -webkit-transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.4s;
+  text-align: left;
+}
+.box:hover {
+  transform: translateY(-8px);
+  -webkit-transform: translateY(-8px);
+  background: var(--blue-xlt);
+  border-color: var(--blue-lt);
+  box-shadow: 0 24px 48px rgba(26,75,219, 0.08);
+}
+
+.phase-num {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 16px;
+  display: inline-block;
+  padding: 6px 14px;
+  background: var(--white);
+  border: 1px solid var(--blue-lt);
+  border-radius: 100px;
+}
+
+.box h3 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 32px;
+  letter-spacing: -0.02em;
+}
+
+/* ── ROADMAP CONTENT LISTS ── */
+.roadmap-content {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.item-group {
+  padding-left: 20px;
+  border-left: 1px solid var(--blue);
+}
+
+.item-group h4 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.item-group h4 span {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--blue);
+  background: var(--white2);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.item-group ul {
+  list-style: none;
+}
+
+.item-group ul li {
+  font-size: 15px;
+  color: var(--mid);
+  margin-bottom: 10px;
+  position: relative;
+  padding-left: 24px;
+  line-height: 1.6;
+}
+.item-group ul li::before {
+  content: '↗';
+  font-family: 'Space Mono', monospace;
+  position: absolute;
+  left: 0;
+  top: 2px;
+  color: var(--blue);
+  font-size: 12px;
+}
+.item-group ul li code {
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  background: var(--white2);
+  color: var(--ink);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Footer */
+footer {
+  text-align: center;
+  margin-top: 100px;
+  padding-top: 60px;
+  border-top: 1px solid var(--white3);
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--mid);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1000px) {
+  .roadmap::before { left: 40px; transform: translateX(0); -webkit-transform: translateX(0); }
+  .card { width: 100%; text-align: left; padding: 20px 0 20px 80px !important; }
+  .card::after { left: 32px !important; right: auto !important; }
+  .card.left { padding-right: 0; }
+  .card.right { left: 0; }
+  .box { padding: 40px 30px; }
+}
+
+@media (max-width: 600px) {
+  body { padding: 40px 16px; }
+  h1 { font-size: 42px; }
+  .desc { font-size: 16px; }
+  .roadmap::before { left: 16px; }
+  .card { padding: 20px 0 20px 44px !important; }
+  .card::after { left: 9px !important; width: 14px; height: 14px; top: 40px; }
+  .box { padding: 30px 20px; }
+  .box h3 { font-size: 26px; }
+}
+</style>
+</head>
+<body>
+
+<header id="mainHeader">
+  <div class="kicker">Execution Framework</div>
+  <h1>Implementation<br><em>Roadmap</em></h1>
+  <p class="desc">The complete technical progression for building the Sway Project. A phase-by-phase breakdown of concepts to master, datasets to curate, and models to train.</p>
+</header>
+
+<div class="roadmap">
+
+  <!-- Phase 1: Gateway Infrastructure -->
+  <div class="card left">
+    <div class="box">
+      <div class="phase-num">Phase 01</div>
+      <h3>The Gateway Core</h3>
+      <div class="roadmap-content">
+        <div class="item-group">
+          <h4><span>01</span> Things To Learn</h4>
+          <ul>
+            <li>Node.js Interception via <code>http-proxy-middleware</code></li>
+            <li>Man-In-The-Middle (MITM) architecture principles</li>
+            <li>HTTP Header injection & OpenAI/Anthropic API specs</li>
+          </ul>
+        </div>
+        <div class="item-group">
+          <h4><span>02</span> Things To Build</h4>
+          <ul>
+            <li>Initialize <code>express.js</code> server exposing <code>/v1/chat/completions</code></li>
+            <li>Implement local routing logic (intercept and forward)</li>
+            <li>Handle Base_URL configuration for AI IDEs (Cursor, Windsurf)</li>
+          </ul>
+        </div>
+        <div class="item-group">
+          <h4><span>03</span> Data & Resources</h4>
+          <ul>
+            <li>Collect sample OpenAI client requests & JSON payloads for validation</li>
+            <li>Secure credential structures for Local BYOK environment</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase 2: Semantic Caching -->
+  <div class="card right">
+    <div class="box">
+      <div class="phase-num">Phase 02</div>
+      <h3>Semantic Caching <em>(Zero Cost)</em></h3>
+      <div class="roadmap-content">
+        <div class="item-group">
+          <h4><span>01</span> Things To Learn</h4>
+          <ul>
+            <li>Vector Embeddings (text-to-vector high dimensional mathematics)</li>
+            <li>ANN (Approximate Nearest Neighbor) Search mechanics</li>
+            <li>Combinatorial Multi-Armed Bandits (CMAB) for cache eviction strategies</li>
+          </ul>
+        </div>
+        <div class="item-group">
+          <h4><span>02</span> Models To Compile</h4>
+          <ul>
+            <li><strong>Embedder:</strong> Deploy <code>all-MiniLM-L6-v2</code> or a similar lightweight encoder</li>
+            <li><strong>Semantic Judge:</strong> Fine-tune a 1B-parameter model exclusively for binary context equivalence classification</li>
+          </ul>
+        </div>
+        <div class="item-group">
+          <h4><span>03</span> Data To Collect</h4>
+          <ul>
+            <li>Paraphrase datasets (e.g., Quora Question Pairs) to train the Semantic Judge to detect equivalent context</li>
+            <li>Internal workflow queries to test cache hit ratios locally</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase 3: Intelligent Routing -->
+  <div class="card left">
+    <div class="box">
+      <div class="phase-num">Phase 03</div>
+      <h3>Intelligent Routing <em>Matrix</em></h3>
+      <div class="roadmap-content">
+        <div class="item-group">
+          <h4><span>01</span> Things To Learn</h4>
+          <ul>
+            <li>LLM Cost Evaluation and Context Window capacities</li>
+            <li>Token estimation algorithms (e.g., <code>tiktoken</code> wrapper implementation)</li>
+            <li>Dynamic load balancing & Rate-limit (429) backoffs</li>
+          </ul>
+        </div>
+        <div class="item-group">
+          <h4><span>02</span> Things To Build</h4>
+          <ul>
+            <li>Complexity Estimator (Analyzes prompt length, presence of tools/schemas)</li>
+            <li>Traffic Director (Switches endpoint based on analysis: e.g. Haiku vs Opus)</li>
+            <li>Adaptive load balancing algorithms</li>
+          </ul>
+        </div>
+        <div class="item-group">
+          <h4><span>03</span> Data To Collect</h4>
+          <ul>
+            <li>Live pricing and Rate-limit sheets for leading models</li>
+            <li>Testing matrices comparing model response accuracy vs token tier</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase 4: Agentic Chunking -->
+  <div class="card right">
+    <div class="box">
+      <div class="phase-num">Phase 04</div>
+      <h3>Agentic Chunking <em>(Anti-Hallucination)</em></h3>
+      <div class="roadmap-content">
+        <div class="item-group">
+          <h4><span>01</span> Things To Learn</h4>
+          <ul>
+            <li>Propositional Decomposition (Meaning-aware dataset segmentation)</li>
+            <li>RAG (Retrieval-Augmented Generation) logical failure modes</li>
+            <li>Strict Structured Outputs (JSON Schema validation) in LLM calls</li>
+          </ul>
+        </div>
+        <div class="item-group">
+          <h4><span>02</span> Things To Build</h4>
+          <ul>
+            <li><strong>Chunker Pipeline:</strong> Replace literal token-splitting with a pre-processing LLM pass to isolate facts</li>
+            <li><strong>Deterministic Engine:</strong> Split processing into "Evidence Gathering" and "Final Synthesis" to constrain LLM freedom</li>
+          </ul>
+        </div>
+        <div class="item-group">
+          <h4><span>03</span> Data To Collect</h4>
+          <ul>
+            <li>Highly complex, noisy documents (PDFs, multi-page specs) to baseline Hallucination rates</li>
+            <li>"Needle in a Haystack" benchmark structures measuring retrieval precision</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase 5: Synthesis -->
+  <div class="card left">
+    <div class="box">
+      <div class="phase-num">Phase 05</div>
+      <h3>Testing & Integration</h3>
+      <div class="roadmap-content">
+        <div class="item-group">
+          <h4><span>01</span> Things To Learn</h4>
+          <ul>
+            <li>Model Context Protocol (MCP) integrations</li>
+            <li>VS Code Extension APIs (LanguageModelChatProvider endpoint mapping)</li>
+          </ul>
+        </div>
+        <div class="item-group">
+          <h4><span>02</span> Things To Build</h4>
+          <ul>
+            <li>Local Metrics Dashboard mapping Cost Saved vs Token Spend</li>
+            <li>Integration test suites orchestrating via Cursor & Windsurf</li>
+          </ul>
+        </div>
+        <div class="item-group">
+          <h4><span>03</span> Final Analysis</h4>
+          <ul>
+            <li>Compare latency (TTFT) and token efficiency empirically against an un-proxied API connection</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <p>Sway ↗ Built for efficiency · Designed for impact</p>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Sway — AUM Mini Project</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100;0,9..144,300;0,9..144,700;1,9..144,100;1,9..144,300;1,9..144,700&family=Outfit:wght@200;300;400;600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+
+/* ══ RESET ══ */
+*, *::before, *::after {
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+  margin: 0; padding: 0;
+}
+
+:root {
+  --white:    #FAFAF8;
+  --white2:   #F0EFE9;
+  --white3:   #E2E0D8;
+  --blue:     #1A4BDB;
+  --blue2:    #2B5CE6;
+  --blue3:    #4B7AF8;
+  --blue-lt:  #C7D9FF;
+  --blue-xlt: #EEF3FF;
+  --ink:      #0D0D12;
+  --ink2:     #181820;
+  --mid:      #6B6B7E;
+  --mid2:     #9494A4;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  background: var(--white);
+  color: var(--ink);
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  font-weight: 300;
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ══ NAV ══ */
+nav {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 56px;
+  background: rgba(250,250,248,0.95);
+  border-bottom: 1px solid var(--white3);
+}
+.nav-logo {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+}
+.nav-logo em { color: var(--blue); font-style: italic; font-weight: 300; }
+.nav-links { display: none; }
+.nav-badge {
+  font-family: 'Space Mono', 'Courier New', monospace;
+  font-size: 9px;
+  color: var(--blue);
+  border: 1px solid var(--blue-lt);
+  background: var(--blue-xlt);
+  padding: 4px 10px;
+  border-radius: 100px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+/* ══ HERO ══ */
+.hero {
+  min-height: 100vh;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  -webkit-justify-content: flex-end;
+  justify-content: flex-end;
+  padding: 40px 20px 56px;
+  position: relative;
+  overflow: hidden;
+  background: var(--white);
+}
+
+.hero-bg { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.hero-bg-c1 {
+  position: absolute; border-radius: 50%;
+  width: 380px; height: 380px; top: -140px; right: -80px;
+  border: 1px solid rgba(26,75,219,0.12);
+}
+.hero-bg-c2 {
+  position: absolute; border-radius: 50%;
+  width: 240px; height: 240px; top: -30px; right: 50px;
+  border: 1px solid rgba(26,75,219,0.07);
+}
+.hero-bg-c3 {
+  position: absolute; border-radius: 50%;
+  width: 120px; height: 120px; top: 60px; right: 160px;
+  background: rgba(199,217,255,0.28);
+}
+.hero-bg-dots {
+  position: absolute; top: 40px; right: 0;
+  width: 200px; height: 200px;
+  background-image: radial-gradient(rgba(26,75,219,0.2) 1px, transparent 1px);
+  background-size: 18px 18px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 80% at 60% 40%, black, transparent);
+  mask-image: radial-gradient(ellipse 80% 80% at 60% 40%, black, transparent);
+}
+
+.hero-kicker {
+  font-family: 'Space Mono', 'Courier New', monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 20px;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  -webkit-animation: fadeUp 0.8s 0.05s both;
+  animation: fadeUp 0.8s 0.05s both;
+}
+.hero-kicker::before {
+  content: '';
+  display: block;
+  width: 20px; height: 1px;
+  background: var(--blue);
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+}
+
+h1.hero-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(62px, 17vw, 100px);
+  font-weight: 100;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  margin-bottom: 28px;
+  opacity: 0;
+  -webkit-animation: fadeUp 0.9s 0.15s both;
+  animation: fadeUp 0.9s 0.15s both;
+}
+h1.hero-title .t-italic {
+  display: block;
+  font-style: italic;
+  color: var(--blue);
+  font-weight: 300;
+}
+
+.hero-desc {
+  font-size: 14px;
+  font-weight: 300;
+  color: var(--mid);
+  line-height: 1.75;
+  margin-bottom: 24px;
+  opacity: 0;
+  -webkit-animation: fadeUp 0.9s 0.25s both;
+  animation: fadeUp 0.9s 0.25s both;
+}
+
+.hero-meta {
+  border-top: 1px solid var(--white3);
+  padding-top: 18px;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  gap: 9px;
+  opacity: 0;
+  -webkit-animation: fadeUp 0.9s 0.35s both;
+  animation: fadeUp 0.9s 0.35s both;
+}
+.hero-meta-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  font-size: 12px;
+  gap: 8px;
+}
+.hero-meta-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mid2);
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+}
+.hero-meta-val {
+  color: var(--ink);
+  font-weight: 400;
+  text-align: right;
+}
+
+@-webkit-keyframes fadeUp {
+  from { opacity: 0; -webkit-transform: translateY(22px); transform: translateY(22px); }
+  to   { opacity: 1; -webkit-transform: translateY(0); transform: translateY(0); }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ══ RULE ══ */
+.rule { height: 1px; background: var(--white3); }
+
+/* ══ SECTION COMMON ══ */
+.sec { padding: 64px 20px; }
+.sec-dark { background: var(--ink); padding: 64px 20px; }
+
+.s-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 12px;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 8px;
+}
+.s-label::before { content: '↗'; font-size: 10px; }
+.sec-dark .s-label { color: var(--blue3); }
+
+.s-heading {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(30px, 7.5vw, 52px);
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  margin-bottom: 12px;
+  color: var(--ink);
+}
+.sec-dark .s-heading { color: #ffffff; }
+.s-heading em { color: var(--blue); font-style: italic; }
+
+.s-sub {
+  font-size: 13px;
+  color: var(--mid);
+  font-weight: 300;
+  line-height: 1.75;
+  margin-bottom: 0;
+}
+.sec-dark .s-sub { color: var(--mid2); }
+
+/* ══ ARCH CARDS ══ */
+.arch-cards {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--white3);
+  border: 1px solid var(--white3);
+  margin-top: 40px;
+}
+.arch-card {
+  background: var(--white);
+  padding: 32px 24px;
+}
+.arch-card.featured { background: var(--blue); }
+
+.arch-num {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mid2);
+  margin-bottom: 20px;
+}
+.arch-card.featured .arch-num { color: rgba(255,255,255,0.5); }
+
+.arch-icon { margin-bottom: 16px; }
+.arch-icon svg { width: 36px; height: 36px; display: block; }
+
+.arch-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+  color: var(--ink);
+}
+.arch-card.featured .arch-title { color: #ffffff; }
+
+.arch-desc {
+  font-size: 13px;
+  font-weight: 300;
+  color: var(--mid);
+  line-height: 1.7;
+}
+.arch-card.featured .arch-desc { color: rgba(255,255,255,0.78); }
+
+.arch-tag {
+  margin-top: 20px;
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--blue);
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 6px;
+}
+.arch-tag::before { content: ''; width: 12px; height: 1px; background: var(--blue); display: block; }
+.arch-card.featured .arch-tag { color: rgba(255,255,255,0.6); }
+.arch-card.featured .arch-tag::before { background: rgba(255,255,255,0.45); }
+
+/* ══ EVAL PANELS ══ */
+.eval-panels {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 40px;
+  background: rgba(255,255,255,0.05);
+}
+.eval-panel { background: var(--ink2); padding: 28px 20px; }
+
+.eval-head {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  -webkit-align-items: flex-start;
+  align-items: flex-start;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  margin-bottom: 28px;
+  gap: 12px;
+}
+.eval-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 18px;
+  font-weight: 300;
+  color: #ffffff;
+}
+.eval-by {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  color: var(--mid2);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 5px;
+}
+.eval-score-wrap { text-align: right; -webkit-flex-shrink: 0; flex-shrink: 0; }
+.eval-score-num {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 48px;
+  font-weight: 100;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--blue3);
+}
+.eval-score-lbl {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  color: var(--mid2);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Chart — explicit px so Safari renders correctly */
+.chart-wrap {
+  width: 180px;
+  height: 180px;
+  margin: 0 auto 24px;
+  position: relative;
+}
+.chart-wrap canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 180px !important;
+  height: 180px !important;
+}
+.chart-center {
+  position: absolute;
+  top: 50%; left: 50%;
+  -webkit-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+.chart-center-big {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 28px;
+  font-weight: 300;
+  color: #ffffff;
+  line-height: 1;
+}
+.chart-center-sm {
+  font-family: 'Space Mono', monospace;
+  font-size: 8px;
+  color: var(--mid2);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+
+/* Guide bar rows */
+.g-rows { display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; }
+.g-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.g-row:last-child { border-bottom: none; }
+.g-code {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  color: var(--blue3);
+  min-width: 20px;
+}
+.g-track {
+  -webkit-flex: 1;
+  flex: 1;
+  height: 2px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.g-fill {
+  height: 100%;
+  background: var(--blue2);
+  border-radius: 2px;
+  width: 0;
+  -webkit-transition: width 1.2s cubic-bezier(0.16,1,0.3,1);
+  transition: width 1.2s cubic-bezier(0.16,1,0.3,1);
+}
+.g-name { font-size: 11px; color: rgba(255,255,255,0.45); min-width: 95px; font-weight: 300; }
+.g-pts  { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.5); min-width: 32px; text-align: right; }
+
+/* Panel rows */
+.p-rows {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.p-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.p-row:nth-child(odd)  { padding-right: 12px; }
+.p-row:nth-child(even) { padding-left: 12px; border-left: 1px solid rgba(255,255,255,0.04); }
+.p-row:nth-last-child(-n+2) { border-bottom: none; }
+.p-code { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--blue3); min-width: 20px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+.p-name { font-size: 10px; color: rgba(255,255,255,0.38); font-weight: 300; -webkit-flex: 1; flex: 1; min-width: 0; }
+.p-pts  { font-family: 'Space Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.25); -webkit-flex-shrink: 0; flex-shrink: 0; }
+
+/* ══ TIMELINE ══ */
+.tl-stat { margin-bottom: 40px; }
+
+.tl-big {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(80px, 22vw, 120px);
+  font-weight: 100;
+  letter-spacing: -0.06em;
+  line-height: 0.85;
+  color: var(--blue);
+}
+.tl-big-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--mid2);
+  margin-top: 6px;
+  margin-bottom: 32px;
+}
+.tl-prog-head {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mid2);
+  margin-bottom: 8px;
+}
+.tl-prog-track {
+  height: 2px;
+  background: var(--white3);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 32px;
+}
+.tl-prog-fill {
+  height: 100%;
+  background: var(--blue);
+  border-radius: 2px;
+  width: 0;
+  -webkit-transition: width 1.4s cubic-bezier(0.16,1,0.3,1);
+  transition: width 1.4s cubic-bezier(0.16,1,0.3,1);
+}
+.tl-score-card {
+  background: var(--blue);
+  padding: 22px 24px;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: baseline;
+  align-items: baseline;
+  gap: 14px;
+  border-radius: 2px;
+}
+.tl-score-num {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 48px;
+  font-weight: 100;
+  letter-spacing: -0.04em;
+  color: #ffffff;
+  line-height: 1;
+}
+.tl-score-info {
+  font-size: 12px;
+  font-weight: 300;
+  color: rgba(255,255,255,0.65);
+  line-height: 1.55;
+}
+
+/* Timeline list */
+.tl-items {
+  position: relative;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}
+.tl-items::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 1px;
+  background: var(--white3);
+}
+.tl-item {
+  padding: 20px 0 20px 24px;
+  border-bottom: 1px solid var(--white3);
+  position: relative;
+}
+.tl-item:last-child { border-bottom: none; padding-bottom: 0; }
+.tl-item::before {
+  content: '';
+  position: absolute;
+  left: -4px; top: 20px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--white3);
+  border: 2px solid var(--white);
+  -webkit-transition: background 0.3s;
+  transition: background 0.3s;
+}
+.tl-item:first-child::before { top: 0; }
+.tl-item.active::before {
+  background: var(--blue);
+  -webkit-transform: scale(1.3);
+  transform: scale(1.3);
+}
+.tl-item.done { opacity: 0.35; }
+
+.tl-date {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  color: var(--mid2);
+  letter-spacing: 0.04em;
+  margin-bottom: 5px;
+}
+.tl-item.active .tl-date { color: var(--blue); }
+.tl-title { font-size: 14px; font-weight: 400; color: var(--ink); margin-bottom: 6px; }
+.tl-badge {
+  display: inline-block;
+  font-family: 'Space Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--blue);
+  background: var(--blue-xlt);
+  border: 1px solid var(--blue-lt);
+  padding: 3px 9px;
+  border-radius: 100px;
+}
+
+/* ══ FOOTER ══ */
+footer {
+  background: var(--ink);
+  padding: 40px 20px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.footer-brand {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 24px;
+  font-weight: 100;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+.footer-brand em { color: var(--blue3); font-style: italic; }
+.footer-note {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mid2);
+  line-height: 1.7;
+}
+
+/* ══ REVEAL ══ */
+.reveal {
+  opacity: 0;
+  -webkit-transform: translateY(20px);
+  transform: translateY(20px);
+  -webkit-transition: opacity 0.7s ease, -webkit-transform 0.7s ease;
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.in { opacity: 1; -webkit-transform: none; transform: none; }
+.d1 { -webkit-transition-delay: 0.08s; transition-delay: 0.08s; }
+.d2 { -webkit-transition-delay: 0.16s; transition-delay: 0.16s; }
+
+/* ══ DESKTOP (768px+) ══ */
+@media (min-width: 768px) {
+  nav { padding: 0 56px; height: 64px; }
+  .nav-links {
+    display: -webkit-flex;
+    display: flex;
+    gap: 36px;
+    list-style: none;
+  }
+  .nav-links a {
+    font-size: 11px; font-weight: 400; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--mid); text-decoration: none;
+    -webkit-transition: color 0.2s; transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--blue); }
+  .nav-badge { font-size: 10px; padding: 5px 14px; }
+
+  .hero { padding: 80px 56px 80px; }
+  .hero-kicker { font-size: 10px; }
+  h1.hero-title { font-size: clamp(72px, 9vw, 120px); }
+  .hero-desc { font-size: 15px; }
+  .hero-two-col {
+    display: -webkit-flex;
+    display: flex;
+    -webkit-align-items: flex-end;
+    align-items: flex-end;
+    -webkit-justify-content: space-between;
+    justify-content: space-between;
+    gap: 64px;
+  }
+  .hero-right-col { max-width: 360px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+
+  .sec, .sec-dark { padding: 96px 56px; }
+
+  .arch-cards { -webkit-flex-direction: row; flex-direction: row; }
+  .arch-card { -webkit-flex: 1; flex: 1; padding: 44px 32px; }
+
+  .eval-panels { -webkit-flex-direction: row; flex-direction: row; }
+  .eval-panel { -webkit-flex: 1; flex: 1; padding: 44px 40px; }
+  .eval-score-num { font-size: 56px; }
+
+  .chart-wrap { width: 220px; height: 220px; }
+  .chart-wrap canvas { width: 220px !important; height: 220px !important; }
+  .chart-center-big { font-size: 32px; }
+
+  .tl-two-col {
+    display: grid;
+    grid-template-columns: 2fr 3fr;
+    gap: 80px;
+    -webkit-align-items: start;
+    align-items: start;
+  }
+  .tl-stat {
+    position: -webkit-sticky;
+    position: sticky;
+    top: 72px;
+    margin-bottom: 0;
+  }
+  .tl-big { font-size: clamp(96px, 12vw, 140px); }
+
+  footer { padding: 56px; }
+  .footer-inner {
+    display: -webkit-flex;
+    display: flex;
+    -webkit-justify-content: space-between;
+    justify-content: space-between;
+    -webkit-align-items: center;
+    align-items: center;
+  }
+  .footer-brand { margin-bottom: 0; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">Sway <em>↗</em></div>
+  <ul class="nav-links">
+    <li><a href="#arch">Architecture</a></li>
+    <li><a href="#eval">Evaluation</a></li>
+    <li><a href="#timeline">Timeline</a></li>
+  </ul>
+  <div class="nav-badge">AUM · 6th Sem · CSE</div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="hero-bg">
+    <div class="hero-bg-c1"></div>
+    <div class="hero-bg-c2"></div>
+    <div class="hero-bg-c3"></div>
+    <div class="hero-bg-dots"></div>
+  </div>
+
+  <div class="hero-kicker">CSE Department · AUM Mini Project · Spring 2026</div>
+
+  <!-- On desktop, .hero-two-col makes title + right col side-by-side -->
+  <div class="hero-two-col">
+    <div>
+      <h1 class="hero-title">
+        Project<br>
+        <span class="t-italic">Sway</span>
+      </h1>
+    </div>
+    <div class="hero-right-col">
+      <p class="hero-desc">An intelligent LLM gateway engineered to eliminate compute waste through semantic caching, cascade routing, and agentic task decomposition.</p>
+      <div class="hero-meta">
+        <div class="hero-meta-row">
+          <span class="hero-meta-label">Department</span>
+          <span class="hero-meta-val">Computer Science &amp; Engineering</span>
+        </div>
+        <div class="hero-meta-row">
+          <span class="hero-meta-label">Semester</span>
+          <span class="hero-meta-val">6th · Spring 2026</span>
+        </div>
+        <div class="hero-meta-row">
+          <span class="hero-meta-label">University</span>
+          <span class="hero-meta-val">AUM</span>
+        </div>
+        <div class="hero-meta-row">
+          <span class="hero-meta-label">Total Marks</span>
+          <span class="hero-meta-val">100 Points</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="rule"></div>
+
+<!-- ARCHITECTURE -->
+<section class="sec" id="arch">
+  <div class="s-label reveal">The System</div>
+  <h2 class="s-heading reveal d1">Three-Layer <em>Architecture</em></h2>
+  <p class="s-sub reveal d2">Each layer targets a distinct category of AI compute waste — stacked for compounding efficiency.</p>
+
+  <div class="arch-cards reveal d1">
+    <div class="arch-card">
+      <div class="arch-num">Layer 01</div>
+      <div class="arch-icon">
+        <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="20" cy="20" r="14" stroke="#1A4BDB" stroke-width="1"/>
+          <circle cx="20" cy="20" r="8" stroke="#1A4BDB" stroke-width="1" stroke-dasharray="3 3"/>
+          <circle cx="20" cy="20" r="3" fill="#1A4BDB"/>
+        </svg>
+      </div>
+      <div class="arch-title">Semantic Caching</div>
+      <div class="arch-desc">Vectorising inputs to detect semantically equivalent queries and serve cached responses. Zero compute cost, zero API spend on repeat patterns.</div>
+      <div class="arch-tag">Zero Cost Layer</div>
+    </div>
+
+    <div class="arch-card featured">
+      <div class="arch-num">Layer 02</div>
+      <div class="arch-icon">
+        <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6 20 L18 8 L34 20 L18 32 Z" stroke="rgba(255,255,255,.6)" stroke-width="1"/>
+          <path d="M12 20 L20 12 L28 20 L20 28 Z" fill="rgba(255,255,255,.12)" stroke="white" stroke-width="1"/>
+          <circle cx="20" cy="20" r="2.5" fill="white"/>
+        </svg>
+      </div>
+      <div class="arch-title">Intelligent Routing</div>
+      <div class="arch-desc">Dynamically directing simple tasks to lightweight models and complex reasoning to heavy models. Token efficiency maximised on every call.</div>
+      <div class="arch-tag">Core Intelligence</div>
+    </div>
+
+    <div class="arch-card">
+      <div class="arch-num">Layer 03</div>
+      <div class="arch-icon">
+        <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6"  y="12" width="28" height="4" rx="1" stroke="#1A4BDB" stroke-width="1"/>
+          <rect x="10" y="20" width="20" height="4" rx="1" stroke="#1A4BDB" stroke-width="1"/>
+          <rect x="14" y="28" width="12" height="4" rx="1" fill="rgba(26,75,219,.15)" stroke="#1A4BDB" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="arch-title">Agentic Chunking</div>
+      <div class="arch-desc">Deconstructing complex requests into deterministic multi-step pipelines. Hallucination eliminated by structural enforcement at every stage.</div>
+      <div class="arch-tag">Anti-Hallucination</div>
+    </div>
+  </div>
+</section>
+
+<div class="rule"></div>
+
+<!-- EVALUATION -->
+<section class="sec-dark" id="eval">
+  <div class="s-label reveal">Academic Alignment</div>
+  <h2 class="s-heading reveal d1">Evaluation <em>Rubric</em></h2>
+  <p class="s-sub reveal d2">100 marks split across two assessors — every deliverable maps to a specific criterion.</p>
+
+  <div class="eval-panels reveal d1">
+
+    <!-- Guide -->
+    <div class="eval-panel">
+      <div class="eval-head">
+        <div>
+          <div class="eval-title">Guide Evaluation</div>
+          <div class="eval-by">Assessed by Project Guide</div>
+        </div>
+        <div class="eval-score-wrap">
+          <div class="eval-score-num">60</div>
+          <div class="eval-score-lbl">marks</div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="guideChart"></canvas>
+        <div class="chart-center">
+          <div class="chart-center-big">60</div>
+          <div class="chart-center-sm">Guide</div>
+        </div>
+      </div>
+      <div class="g-rows" id="guideRows">
+        <div class="g-row">
+          <span class="g-code">R1</span>
+          <div class="g-track"><div class="g-fill" data-pct="16.7"></div></div>
+          <span class="g-name">Timely Follow-up</span>
+          <span class="g-pts">10 pts</span>
+        </div>
+        <div class="g-row">
+          <span class="g-code">R2</span>
+          <div class="g-track"><div class="g-fill" data-pct="25"></div></div>
+          <span class="g-name">Timely Submissions</span>
+          <span class="g-pts">15 pts</span>
+        </div>
+        <div class="g-row">
+          <span class="g-code">R3</span>
+          <div class="g-track"><div class="g-fill" data-pct="25"></div></div>
+          <span class="g-name">Quality of Report</span>
+          <span class="g-pts">15 pts</span>
+        </div>
+        <div class="g-row">
+          <span class="g-code">R4</span>
+          <div class="g-track"><div class="g-fill" data-pct="33.3"></div></div>
+          <span class="g-name">Research Paper</span>
+          <span class="g-pts">20 pts</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel -->
+    <div class="eval-panel">
+      <div class="eval-head">
+        <div>
+          <div class="eval-title">Final Presentation</div>
+          <div class="eval-by">Assessed by Panel</div>
+        </div>
+        <div class="eval-score-wrap">
+          <div class="eval-score-num">40</div>
+          <div class="eval-score-lbl">marks</div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="panelChart"></canvas>
+        <div class="chart-center">
+          <div class="chart-center-big">40</div>
+          <div class="chart-center-sm">Panel</div>
+        </div>
+      </div>
+      <div class="p-rows">
+        <div class="p-row"><span class="p-code">R5</span><span class="p-name">Literature Review</span><span class="p-pts">05</span></div>
+        <div class="p-row"><span class="p-code">R6</span><span class="p-name">Methodology</span><span class="p-pts">05</span></div>
+        <div class="p-row"><span class="p-code">R7</span><span class="p-name">Implementation</span><span class="p-pts">05</span></div>
+        <div class="p-row"><span class="p-code">R8</span><span class="p-name">Results &amp; Analysis</span><span class="p-pts">05</span></div>
+        <div class="p-row"><span class="p-code">R9</span><span class="p-name">Presentation Skills</span><span class="p-pts">05</span></div>
+        <div class="p-row"><span class="p-code">R10</span><span class="p-name">Teamwork</span><span class="p-pts">05</span></div>
+        <div class="p-row"><span class="p-code">R11</span><span class="p-name">Innovation</span><span class="p-pts">05</span></div>
+        <div class="p-row"><span class="p-code">R12</span><span class="p-name">Work Completion</span><span class="p-pts">05</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="rule"></div>
+
+<!-- TIMELINE -->
+<section class="sec" id="timeline">
+  <div class="s-label reveal">Spring 2026</div>
+  <h2 class="s-heading reveal d1">Project <em>Timeline</em></h2>
+  <p class="s-sub reveal d2">Submission windows and presentation dates for the current academic cycle.</p>
+
+  <!-- On desktop, .tl-two-col becomes a 2-col grid -->
+  <div class="tl-two-col" style="margin-top: 40px;">
+    <div class="tl-stat reveal">
+      <div class="tl-big" id="daysNum">—</div>
+      <div class="tl-big-label">Days to Final Presentation</div>
+      <div class="tl-prog-head">
+        <span>Mar 11</span>
+        <span id="pctLabel">—% elapsed</span>
+      </div>
+      <div class="tl-prog-track">
+        <div class="tl-prog-fill" id="pctBar"></div>
+      </div>
+      <div class="tl-score-card">
+        <div class="tl-score-num">100</div>
+        <div class="tl-score-info">Total marks<br>available across<br>guide &amp; panel</div>
+      </div>
+    </div>
+
+    <div class="tl-items reveal d1">
+      <div class="tl-item" id="tl0">
+        <div class="tl-date">11 Mar 2026</div>
+        <div class="tl-title">Presentation – 1</div>
+        <div class="tl-badge">Completed</div>
+      </div>
+      <div class="tl-item" id="tl1">
+        <div class="tl-date">16 Mar 2026</div>
+        <div class="tl-title">Meeting with Guide</div>
+      </div>
+      <div class="tl-item" id="tl2">
+        <div class="tl-date">17 Mar 2026</div>
+        <div class="tl-title">Abstract Submission</div>
+      </div>
+      <div class="tl-item" id="tl3">
+        <div class="tl-date">23 Mar 2026</div>
+        <div class="tl-title">Synopsis Submission</div>
+      </div>
+      <div class="tl-item" id="tl4">
+        <div class="tl-date">04 May 2026</div>
+        <div class="tl-title">Research Paper &amp; Report</div>
+        <div class="tl-badge">R3 · R4 Deadline</div>
+      </div>
+      <div class="tl-item" id="tl5">
+        <div class="tl-date">6 – 8 May 2026</div>
+        <div class="tl-title">Final Presentation</div>
+        <div class="tl-badge">Panel · 40 Marks</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">Sway <em>↗</em></div>
+    <div class="footer-note">Built for efficiency · Designed for impact<br>AUM CSE · Spring 2026</div>
+  </div>
+</footer>
+
+<script>
+/* ── Scroll reveal ── */
+var revObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('in'); });
+}, { threshold: 0.06 });
+document.querySelectorAll('.reveal').forEach(function(el) { revObs.observe(el); });
+
+/* ── Bar fills ── */
+var barObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) {
+    if (e.isIntersecting) {
+      e.target.querySelectorAll('[data-pct]').forEach(function(b) {
+        setTimeout(function() { b.style.width = b.getAttribute('data-pct') + '%'; }, 300);
+      });
+    }
+  });
+}, { threshold: 0.15 });
+var gr = document.getElementById('guideRows');
+if (gr) barObs.observe(gr);
+
+/* ── Days / progress ── */
+var today   = new Date();
+var finalDt = new Date('2026-05-06');
+var startDt = new Date('2026-03-11');
+var endDt   = new Date('2026-05-08');
+var days    = Math.max(0, Math.ceil((finalDt - today) / 86400000));
+var dEl     = document.getElementById('daysNum');
+if (dEl) dEl.textContent = days;
+var total   = (endDt - startDt) / 86400000;
+var elapsed = Math.max(0, Math.min(total, (today - startDt) / 86400000));
+var pct     = Math.round(elapsed / total * 100);
+setTimeout(function() {
+  var pb = document.getElementById('pctBar');
+  var pl = document.getElementById('pctLabel');
+  if (pb) pb.style.width = pct + '%';
+  if (pl) pl.textContent = pct + '% elapsed';
+}, 500);
+
+/* ── Timeline state ── */
+var tlDates = [
+  new Date('2026-03-11'), new Date('2026-03-16'), new Date('2026-03-17'),
+  new Date('2026-03-23'), new Date('2026-05-04'), new Date('2026-05-06')
+];
+var nxt = -1;
+for (var i = 0; i < tlDates.length; i++) {
+  if (tlDates[i] >= today) { nxt = i; break; }
+}
+for (var j = 0; j < tlDates.length; j++) {
+  var el = document.getElementById('tl' + j);
+  if (!el) continue;
+  if (j < (nxt < 0 ? tlDates.length : nxt)) el.classList.add('done');
+  if (j === nxt) el.classList.add('active');
+}
+
+/* ── Charts ── */
+function initCharts() {
+  if (typeof Chart === 'undefined') { setTimeout(initCharts, 150); return; }
+
+  var gCanvas = document.getElementById('guideChart');
+  if (gCanvas) {
+    new Chart(gCanvas, {
+      type: 'doughnut',
+      data: {
+        labels: ['Follow-up (R1)', 'Submissions (R2)', 'Report (R3)', 'Research Paper (R4)'],
+        datasets: [{
+          data: [10, 15, 15, 20],
+          backgroundColor: ['#1A4BDB', '#2B5CE6', '#4B7AF8', '#C7D9FF'],
+          borderColor: '#181820',
+          borderWidth: 2,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: false,
+        cutout: '68%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: { label: function(c) { return ' ' + c.label + ': ' + c.parsed + ' marks'; } },
+            backgroundColor: '#0D0D12', titleColor: '#4B7AF8',
+            bodyColor: '#9494A4', borderColor: 'rgba(75,122,248,.2)', borderWidth: 1
+          }
+        },
+        animation: { animateRotate: true, duration: 900, easing: 'easeOutQuart' }
+      }
+    });
+  }
+
+  var pCanvas = document.getElementById('panelChart');
+  if (pCanvas) {
+    new Chart(pCanvas, {
+      type: 'doughnut',
+      data: {
+        labels: ['R5','R6','R7','R8','R9','R10','R11','R12'],
+        datasets: [{
+          data: [5,5,5,5,5,5,5,5],
+          backgroundColor: ['#1A4BDB','#2055E0','#2760E5','#2F6AEA','#3674EF','#3E7DF4','#4B7AF8','#6E95FA'],
+          borderColor: '#181820',
+          borderWidth: 2,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: false,
+        cutout: '68%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: { label: function(c) { return ' ' + c.label + ': 5 marks'; } },
+            backgroundColor: '#0D0D12', titleColor: '#4B7AF8',
+            bodyColor: '#9494A4', borderColor: 'rgba(75,122,248,.2)', borderWidth: 1
+          }
+        },
+        animation: { animateRotate: true, duration: 1100, easing: 'easeOutQuart' }
+      }
+    });
+  }
+}
+initCharts();
+</script>
+</body>
+</html>

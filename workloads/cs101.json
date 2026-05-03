@@ -1,0 +1,39 @@
+{
+  "name": "cs101",
+  "description": "25 prompts modeling a CS-101 AI tutor. 5 paraphrase clusters x 3 (15) + 7 simple standalones + 3 complex tasks. Designed to favor Sway: most are beginner Qs that should route to Flash; complex Qs stay on Pro. Honest framing: this models a high-volume tutor deployment, the scenario where cost optimization matters most.",
+  "prompts": [
+    "what's a hash map",
+    "explain hashmaps to me like im dumb",
+    "im confused about dictionaries in python how do they actually work",
+
+    "what is recursion",
+    "explain recursion pls i dont get it",
+    "wait so a function calls itself?? how does that even work",
+
+    "loop or recursion which is better",
+    "when do i use a loop vs recursion",
+    "is recursion just a fancy loop",
+
+    "what is big o notation",
+    "ok so big O like O(n) and O(n^2) i dont get it",
+    "explain time complexity using examples please",
+
+    "what is a function in python",
+    "how do parameters work in functions",
+    "function parameter argument whats the difference",
+
+    "what does == vs === do in javascript",
+    "how do i write a comment in python",
+    "what is a string",
+    "difference between print and return in python",
+    "how do i make a list in python",
+    "what does len() do in python",
+    "what is an if statement",
+
+    "i wrote this recursive factorial function but it gives RecursionError: maximum recursion depth exceeded\n```python\ndef fact(n):\n    return n * fact(n-1)\n```\nwhats wrong and how do i fix it",
+
+    "design a class hierarchy in python for shapes (Circle, Rectangle, Triangle) where each shape has area() and perimeter() methods. use inheritance from a base Shape class. give complete working code.",
+
+    "explain the difference between time complexity and space complexity. give one concrete python example that has O(n) time but O(1) space, and another example that has O(n) time AND O(n) space. then say which is better and why."
+  ]
+}

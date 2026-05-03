@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Sway — AUM Mini Project</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100;0,9..144,300;0,9..144,700;1,9..144,100;1,9..144,300;1,9..144,700&family=Outfit:wght@200;300;400;600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+/* ══════════════════════════════════════════════
+   DESIGN TOKENS
+══════════════════════════════════════════════ */
+:root{
+  --white:    #FAFAF8;
+  --white2:   #F0EFE9;
+  --white3:   #E2E0D8;
+  --blue:     #1A4BDB;
+  --blue2:    #2B5CE6;
+  --blue3:    #4B7AF8;
+  --blue-lt:  #C7D9FF;
+  --blue-xlt: #EEF3FF;
+  --ink:      #0D0D12;
+  --ink2:     #181820;
+  --ink3:     #252530;
+  --mid:      #6B6B7E;
+  --mid2:     #9494A4;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { 
+  scroll-behavior: smooth; 
+  font-size: 18px; 
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--white);
+  color: var(--ink);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 300;
+  line-height: 1.6;
+  overflow-x: hidden;
+  width: 100%;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 56px; height: 80px;
+  background: rgba(250,250,248,.95);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--white3);
+}
+.nav-logo {
+  font-family: 'Fraunces', serif;
+  font-size: 26px; font-weight: 700; letter-spacing: -.04em; color: var(--ink);
+}
+.nav-logo em { color: var(--blue); font-style: italic; font-weight: 300; }
+.nav-links { display: flex; gap: 40px; list-style: none; }
+.nav-links a {
+  font-size: 13px; font-weight: 400; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--mid); text-decoration: none; transition: color .2s;
+}
+.nav-badge {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; color: var(--blue);
+  border: 1px solid var(--blue-lt); background: var(--blue-xlt);
+  padding: 6px 16px; border-radius: 100px; letter-spacing: .08em;
+}
+
+/* ── HERO ── */
+.hero {
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 160px 56px 100px; /* Safe padding instead of vh */
+  position: relative; overflow: hidden;
+  background: var(--white);
+}
+
+.hero-bg { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.hero-bg-c1 {
+  position: absolute; border-radius: 50%;
+  width: 680px; height: 680px; top: -240px; right: -120px;
+  border: 1px solid rgba(26,75,219,.1);
+}
+.hero-bg-c2 {
+  position: absolute; border-radius: 50%;
+  width: 440px; height: 440px; top: -80px; right: 100px;
+  border: 1px solid rgba(26,75,219,.07);
+}
+.hero-bg-dots {
+  position: absolute; top: 120px; right: 0;
+  width: 360px; height: 360px;
+  background-image: radial-gradient(rgba(26,75,219,.22) 1px, transparent 1px);
+  background-size: 24px 24px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 80% at 60% 40%, black, transparent);
+  mask-image: radial-gradient(ellipse 80% 80% at 60% 40%, black, transparent);
+}
+
+.hero-kicker {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--blue); margin-bottom: 40px;
+  display: flex; align-items: center; gap: 16px;
+}
+.hero-kicker::before { content: ''; display: block; width: 40px; height: 1px; background: var(--blue); }
+
+.hero-main {
+  display: grid; grid-template-columns: 1fr auto; align-items: flex-end; gap: 80px;
+}
+.hero-title {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(64px, 9.5vw, 140px);
+  font-weight: 100; line-height: .92; letter-spacing: -.04em;
+}
+.hero-title .t-italic { font-style: italic; color: var(--blue); font-weight: 300; }
+.hero-right { max-width: 400px; padding-bottom: 12px; }
+.hero-desc { font-size: 18px; font-weight: 300; color: var(--mid); line-height: 1.6; margin-bottom: 32px; }
+.hero-meta {
+  border-top: 1px solid var(--white3); padding-top: 24px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.hero-meta-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; }
+.hero-meta-row span:first-child { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--mid2); }
+
+/* ── SHARED SECTION ── */
+.section { padding: 120px 56px; }
+.section-inner { max-width: 1300px; margin: 0 auto; width: 100%; }
+.s-label { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--blue); margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+.s-label::before { content: '↗'; font-size: 13px; }
+.s-heading { font-family: 'Fraunces', serif; font-size: clamp(38px, 5vw, 68px); font-weight: 300; letter-spacing: -.02em; line-height: 1.05; margin-bottom: 20px; }
+.s-heading em { color: var(--blue); font-style: italic; }
+.s-sub { font-size: 18px; color: var(--mid); font-weight: 300; max-width: 540px; line-height: 1.7; }
+.rule { height: 1px; background: var(--white3); margin: 0 56px; }
+
+/* ── ARCHITECTURE ── */
+.arch-section { background: var(--white); padding: 120px 56px; }
+.arch-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: var(--white3); border: 1px solid var(--white3); margin-top: 80px; }
+.arch-card { background: var(--white); padding: 56px 40px; }
+.arch-card.featured { background: var(--blue); }
+.arch-num { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--mid2); margin-bottom: 40px; }
+.arch-card.featured .arch-num { color: rgba(255,255,255,.55); }
+.arch-icon { margin-bottom: 32px; }
+.arch-icon svg { width: 48px; height: 48px; display: block; }
+.arch-title { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 600; letter-spacing: -.02em; margin-bottom: 16px; color: var(--ink); }
+.arch-card.featured .arch-title { color: #fff; }
+.arch-desc { font-size: 16px; font-weight: 300; color: var(--mid); line-height: 1.7; }
+.arch-card.featured .arch-desc { color: rgba(255,255,255,.8); }
+
+/* ── EVALUATION ── */
+.eval-section { background: var(--ink); padding: 120px 56px; }
+.eval-section .s-label { color: var(--blue3); }
+.eval-section .s-heading { color: #fff; }
+.eval-section .s-sub { color: var(--mid2); }
+.eval-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: rgba(255,255,255,.05); margin-top: 80px; }
+.eval-panel { background: var(--ink2); padding: 56px; }
+.eval-head { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 32px; border-bottom: 1px solid rgba(255,255,255,.06); margin-bottom: 40px; }
+.eval-title { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 300; color: #fff; letter-spacing: -.01em; }
+.eval-score { font-family: 'Fraunces', serif; font-size: 64px; font-weight: 100; color: var(--blue3); text-align: right; line-height: 1; }
+.eval-score-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--mid2); letter-spacing: .12em; text-transform: uppercase; text-align: right; }
+.chart-wrap { position: relative; display: flex; align-items: center; justify-content: center; height: 240px; margin-bottom: 40px; width: 100%; }
+.chart-wrap canvas { max-width: 240px !important; max-height: 240px !important; }
+.chart-center { position: absolute; text-align: center; pointer-events: none; }
+.chart-center-big { font-family: 'Fraunces', serif; font-size: 36px; font-weight: 300; color: #fff; line-height: 1; }
+
+.g-rows { display: flex; flex-direction: column; gap: 0; width: 100%; }
+.g-row { display: flex; align-items: center; gap: 16px; padding: 16px 0; border-bottom: 1px solid rgba(255,255,255,.04); width: 100%; }
+.g-code { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--blue3); min-width: 26px; }
+.g-track { flex: 1; height: 3px; background: rgba(255,255,255,.06); border-radius: 2px; }
+.g-fill { height: 100%; background: var(--blue2); border-radius: 2px; width: 100%; } /* Fallback width to 100% so it's visible without JS */
+.g-name { font-size: 14px; color: rgba(255,255,255,.5); min-width: 140px; font-weight: 300; }
+.g-pts { font-family: 'Space Mono', monospace; font-size: 13px; color: rgba(255,255,255,.6); text-align: right; }
+
+.p-rows { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+.p-row { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,.04); }
+
+/* ── TIMELINE ── */
+.tl-section { background: var(--white); padding: 120px 56px; }
+.tl-grid { display: grid; grid-template-columns: 2fr 3fr; gap: 100px; margin-top: 80px; align-items: start; }
+.tl-big { font-family: 'Fraunces', serif; font-size: clamp(80px,13vw,160px); font-weight: 100; letter-spacing: -.06em; line-height: .85; color: var(--blue); margin-bottom: 8px; }
+.tl-prog-head { display: flex; justify-content: space-between; font-family: 'Space Mono', monospace; font-size: 10px; color: var(--mid2); margin-bottom: 12px; text-transform: uppercase; }
+.tl-prog-track { height: 3px; background: var(--white3); margin-bottom: 56px; }
+.tl-prog-fill  { height: 100%; background: var(--blue); width: 10%; }
+
+.tl-items { position: relative; display: flex; flex-direction: column; }
+.tl-item { display: grid; grid-template-columns: 150px 1fr; gap: 32px; padding: 36px 0 36px 40px; border-bottom: 1px solid var(--white3); position: relative; }
+.tl-date { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--mid2); padding-top: 4px; }
+.tl-title { font-size: 20px; font-weight: 400; color: var(--ink); margin-bottom: 10px; }
+.tl-badge { display: inline-block; font-family: 'Space Mono', monospace; font-size: 10px; text-transform: uppercase; color: var(--blue); background: var(--blue-xlt); padding: 4px 12px; border-radius: 100px; }
+
+footer { background: var(--ink); padding: 64px 56px; display: flex; justify-content: space-between; align-items: center; }
+.footer-brand { font-family: 'Fraunces', serif; font-size: 30px; font-weight: 100; color: #fff; }
+.footer-note { font-family: 'Space Mono', monospace; font-size: 11px; text-transform: uppercase; color: var(--mid); }
+
+/* ── SCROLL REVEAL (Desktop Only) ── */
+@media (min-width: 861px) {
+  .reveal { opacity: 0; transform: translateY(28px); transition: opacity .75s, transform .75s; }
+  .reveal.in { opacity: 1; transform: none; }
+}
+
+/* ── RESPONSIVE iOS FIXES ── */
+@media (max-width: 860px) {
+  nav { padding: 0 24px; position: absolute; } /* iOS fix: absolute prevents fixed trapping */
+  .nav-links { display: none; }
+  .hero, .arch-section, .eval-section, .tl-section, .section { padding: 100px 24px 80px; } /* Removed vh reliance */
+  .rule { margin: 0 24px; }
+  .hero-main { grid-template-columns: 1fr; gap: 48px; }
+  .arch-cards { grid-template-columns: 1fr; }
+  .arch-card { padding: 48px 32px; }
+  .eval-grid { grid-template-columns: 1fr; }
+  .eval-panel { padding: 40px 24px; overflow: hidden; }
+  .p-rows { grid-template-columns: 1fr; }
+  .g-name { min-width: 100px; }
+  .tl-grid { grid-template-columns: 1fr; gap: 64px; }
+  .tl-item { grid-template-columns: 120px 1fr; gap: 20px; padding-left: 0; }
+  footer { flex-direction: column; gap: 24px; text-align: center; padding: 48px 24px; }
+  /* iOS visibility guarantees */
+  .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+}
+@media (max-width: 540px) {
+  .hero-title { font-size: clamp(52px, 15vw, 90px); }
+  .tl-item { grid-template-columns: 1fr; gap: 8px; }
+  .eval-score { font-size: 48px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Sway <em>↗</em></div>
+  <div class="nav-badge">AUM · 6th Sem · CSE</div>
+</nav>
+
+<section class="hero" id="top">
+  <div class="hero-bg">
+    <div class="hero-bg-c1"></div>
+    <div class="hero-bg-c2"></div>
+    <div class="hero-bg-dots"></div>
+  </div>
+
+  <div class="hero-kicker">CSE Dept · AUM Mini Project · Spring 2026</div>
+
+  <div class="hero-main">
+    <div>
+      <h1 class="hero-title">
+        Project<br>
+        <span class="t-italic">Sway</span>
+      </h1>
+    </div>
+    <div class="hero-right">
+      <p class="hero-desc">An intelligent LLM gateway engineered to eliminate compute waste through semantic caching, cascade routing, and agentic task decomposition.</p>
+      <div class="hero-meta">
+        <div class="hero-meta-row"><span>Semester</span><span>6th · Spring 2026</span></div>
+        <div class="hero-meta-row"><span>Total Marks</span><span>100 Points</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="rule"></div>
+
+<section class="arch-section" id="arch">
+  <div class="section-inner">
+    <div class="s-label reveal">The System</div>
+    <h2 class="s-heading reveal">Three-Layer <em>Architecture</em></h2>
+    <p class="s-sub reveal">Each layer targets a distinct category of AI compute waste.</p>
+
+    <div class="arch-cards reveal">
+      <div class="arch-card">
+        <div class="arch-num">Layer 01</div>
+        <div class="arch-title">Semantic Caching</div>
+        <div class="arch-desc">Vectorising inputs to serve cached responses for repeat queries. Zero compute cost.</div>
+      </div>
+      <div class="arch-card featured">
+        <div class="arch-num">Layer 02</div>
+        <div class="arch-title">Intelligent Routing</div>
+        <div class="arch-desc">Directing simple tasks to fast models and reasoning to heavy models. Token efficiency maximised.</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-num">Layer 03</div>
+        <div class="arch-title">Agentic Chunking</div>
+        <div class="arch-desc">Deconstructing complex requests into pipelines to prevent model hallucination.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="eval-section" id="eval">
+  <div class="section-inner">
+    <div class="s-label reveal">Academic Alignment</div>
+    <h2 class="s-heading reveal">Evaluation <em>Rubric</em></h2>
+
+    <div class="eval-grid reveal">
+      <div class="eval-panel">
+        <div class="eval-head">
+          <div>
+            <div class="eval-title">Guide Evaluation</div>
+          </div>
+          <div>
+            <div class="eval-score">60</div>
+            <div class="eval-score-label">marks</div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="guideChart"></canvas>
+          <div class="chart-center">
+            <div class="chart-center-big">60</div>
+          </div>
+        </div>
+        <div class="g-rows">
+          <div class="g-row"><span class="g-code">R1</span><div class="g-track"><div class="g-fill" style="width: 16.7%;"></div></div><span class="g-name">Timely Follow-up</span><span class="g-pts">10 pts</span></div>
+          <div class="g-row"><span class="g-code">R2</span><div class="g-track"><div class="g-fill" style="width: 25%;"></div></div><span class="g-name">Timely Submissions</span><span class="g-pts">15 pts</span></div>
+          <div class="g-row"><span class="g-code">R3</span><div class="g-track"><div class="g-fill" style="width: 25%;"></div></div><span class="g-name">Quality of Report</span><span class="g-pts">15 pts</span></div>
+          <div class="g-row"><span class="g-code">R4</span><div class="g-track"><div class="g-fill" style="width: 33.3%;"></div></div><span class="g-name">Research Paper</span><span class="g-pts">20 pts</span></div>
+        </div>
+      </div>
+
+      <div class="eval-panel">
+        <div class="eval-head">
+          <div>
+            <div class="eval-title">Final Presentation</div>
+          </div>
+          <div>
+            <div class="eval-score">40</div>
+            <div class="eval-score-label">marks</div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="panelChart"></canvas>
+          <div class="chart-center">
+            <div class="chart-center-big">40</div>
+          </div>
+        </div>
+        <div class="p-rows">
+          <div class="p-row"><span class="p-code">R5</span><span class="p-name">Lit. Review</span></div>
+          <div class="p-row"><span class="p-code">R6</span><span class="p-name">Methodology</span></div>
+          <div class="p-row"><span class="p-code">R7</span><span class="p-name">Implementation</span></div>
+          <div class="p-row"><span class="p-code">R8</span><span class="p-name">Results</span></div>
+          <div class="p-row"><span class="p-code">R9</span><span class="p-name">Presentation</span></div>
+          <div class="p-row"><span class="p-code">R10</span><span class="p-name">Teamwork</span></div>
+          <div class="p-row"><span class="p-code">R11</span><span class="p-name">Innovation</span></div>
+          <div class="p-row"><span class="p-code">R12</span><span class="p-name">Completion</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="tl-section" id="timeline">
+  <div class="section-inner">
+    <div class="s-label reveal">Spring 2026</div>
+    <h2 class="s-heading reveal">Project <em>Timeline</em></h2>
+
+    <div class="tl-grid">
+      <div class="tl-left reveal">
+        <div class="tl-big" id="daysNum">51</div>
+        <div class="tl-big-label">Days to Final Presentation</div>
+        <div class="tl-prog-head"><span>Mar 11</span><span id="pctLabel">10% elapsed</span></div>
+        <div class="tl-prog-track"><div class="tl-prog-fill" id="pctBar"></div></div>
+      </div>
+
+      <div class="tl-items reveal" id="tlItems">
+        <div class="tl-item">
+          <div class="tl-date">11 Mar 2026</div>
+          <div><div class="tl-title">Presentation – 1</div><div class="tl-badge">Completed</div></div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-date">16 Mar 2026</div>
+          <div><div class="tl-title">Meeting with Guide</div><div class="tl-badge">Up Next</div></div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-date">17 Mar 2026</div>
+          <div><div class="tl-title">Abstract Submission</div></div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-date">04 May 2026</div>
+          <div><div class="tl-title">Research Paper &amp; Report</div></div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-date">6 – 8 May 2026</div>
+          <div><div class="tl-title">Final Presentation</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-brand">Sway <em>↗</em></div>
+  <div class="footer-note">Built for efficiency · Designed for impact</div>
+</footer>
+
+<script>
+/* Simplified JS to ensure iOS QuickLook doesn't crash */
+setTimeout(function() {
+  document.getElementById('pctBar').style.width = '12%';
+}, 500);
+
+if(window.IntersectionObserver && window.innerWidth > 860) {
+  var obs = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) { if(e.isIntersecting) e.target.classList.add('in'); });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(function(el) { obs.observe(el); });
+}
+
+/* ── Chart.js ── */
+if(window.Chart) {
+  new Chart(document.getElementById('guideChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['R1', 'R2', 'R3', 'R4'],
+      datasets: [{ data: [10, 15, 15, 20], backgroundColor: ['#1A4BDB', '#2B5CE6', '#4B7AF8', '#C7D9FF'], borderColor: '#181820', borderWidth: 2 }]
+    },
+    options: { responsive: true, maintainAspectRatio: true, cutout: '70%', plugins: { legend: { display: false } }, animation: false }
+  });
+
+  new Chart(document.getElementById('panelChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['R5','R6','R7','R8','R9','R10','R11','R12'],
+      datasets: [{ data: [5,5,5,5,5,5,5,5], backgroundColor: ['#1A4BDB','#2055E0','#2760E5','#2F6AEA','#3674EF','#3E7DF4','#4B7AF8','#6E95FA'], borderColor: '#181820', borderWidth: 2 }]
+    },
+    options: { responsive: true, maintainAspectRatio: true, cutout: '70%', plugins: { legend: { display: false } }, animation: false }
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+{
+  "name": "default",
+  "description": "30 prompts: 5 paraphrase clusters x 3 simple intents (15) + 15 mixed real tasks",
+  "prompts": [
+    "What is the capital of France?",
+    "Tell me the capital of France.",
+    "France's capital city is what?",
+    "Which city is the capital of France?",
+    "Capital of France?",
+
+    "How do I reverse a string in Python?",
+    "Show me how to reverse a string in Python.",
+    "What's the way to reverse a string using Python?",
+    "Python: reverse a string, how?",
+    "Give me Python code to reverse a string.",
+
+    "Explain what a closure is in JavaScript.",
+    "What is a closure in JavaScript?",
+    "Tell me about closures in JS.",
+    "Closures in JavaScript - explain please.",
+    "How do closures work in JavaScript?",
+
+    "Write a TypeScript function that debounces another function with a configurable wait time.",
+    "Refactor this code to use async/await instead of .then() chains: fetch('/api').then(r => r.json()).then(d => console.log(d))",
+    "Diagnose why my React component re-renders every keystroke when I type in an input that uses useState.",
+    "Design a rate limiter for a public API that allows 100 requests per minute per IP, with a sliding window.",
+    "Audit this SQL for injection risk: const q = `SELECT * FROM users WHERE name='${name}'`",
+    "Review this Go function for race conditions and suggest fixes:\n```go\nvar counter int\nfunc Inc() { counter++ }\n```",
+    "Explain the CAP theorem with a concrete example from a database you know.",
+    "What's the difference between Kubernetes Deployment, StatefulSet, and DaemonSet?",
+    "Convert Celsius to Fahrenheit.",
+    "List 5 git commands every developer should know.",
+    "What's a good name for a CLI tool that reduces LLM API costs?",
+    "Summarize the difference between TCP and UDP in two sentences.",
+    "Optimize this Python function for memory:\n```python\ndef sum_squares(n):\n    return sum([i*i for i in range(n)])\n```",
+    "Write a regex to match a valid email address (RFC 5322 simplified).",
+    "Trace through this recursion and tell me the output:\n```js\nfunction f(n) { return n <= 1 ? n : f(n-1) + f(n-2); }\nconsole.log(f(6));\n```"
+  ]
+}

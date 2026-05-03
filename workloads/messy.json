@@ -1,0 +1,26 @@
+{
+  "name": "messy",
+  "description": "15 deliberately bad real-dev prompts. 3 paraphrase clusters x 4 messy variants (12) + 3 standalone complex tasks. Designed to maximize the gap between raw and sway: messy prompts produce verbose preamble-heavy outputs from raw flagship; sway canonicalizes, routes simple ones to nano, and cuts output tokens hard.",
+  "prompts": [
+    "ok so i have a useEffect that runs every render how do i fix it",
+    "USEEFFECT runs forever pls help",
+    "hi um my useeffect keeps firing on every render i think the deps array is wrong but idk what to put in it",
+    "useeffect infinite loop what do i do",
+
+    "explain promises but like im dumb",
+    "wait i dont get promises can someone explain in simple words like im 5",
+    "hey can u explain js promises i tried reading docs but i dont get it",
+    "promises in javascript = ??? confused",
+
+    "whats the difference btwn let var const",
+    "let vs const vs var??",
+    "ok so when do i use let and when const and when var im so confused",
+    "var let const explain pls when to use which",
+
+    "i wrote this sql but it returns duplicates how do i fix\nselect u.name, o.id from users u join orders o on u.id = o.user_id where u.active = 1\nalso explain why duplicates happen also is there a faster way and should i be using a window function here or no",
+
+    "review my python function i think its slow but idk why help\n```python\ndef find_pairs(nums, target):\n    result = []\n    for i in range(len(nums)):\n        for j in range(len(nums)):\n            if i != j and nums[i] + nums[j] == target:\n                result.append((nums[i], nums[j]))\n    return result\n```\nalso why is python slow in general",
+
+    "im building a chat app and want to handle 10k concurrent users what should i do also is websockets the right choice or should i use sse or long polling and how do i scale this horizontally and what database is best for chat messages also is redis good for this"
+  ]
+}

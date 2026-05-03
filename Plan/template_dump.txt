@@ -1,0 +1,86 @@
+--- PARAGRAPHS ---
+[0]: 
+[1]: AMITY UNIVERSITY, MUMBAI
+Amity School of Engineering and Technology
+Department of Computer Science & Engineering
+[2]: 
+[3]: MINI PROJECT SYNOPSIS
+(Academic Year 2025–26)
+
+-----TITLE OF THE PROJECT-----
+[4]: 
+[5]: 
+Submitted By:
+
+1. Name of Student 1 (Roll No: ________)
+2. Name of Student 2 (Roll No: ________)
+3. Name of Student 3 (Roll No: ________)
+4. Name of Student 4 (Roll No: ________)
+
+[6]: 
+[7]: Under the Guidance of:
+
+Name of Guide: __________________________
+Designation: ____________________________
+
+[8]: 1. Title of the Project
+[9]: (Write a clear and concise project title reflecting the problem and solution)
+
+[10]: 2. Abstract
+[11]: (Write brief summary of the project (150–200 words) covering: Problem statement, Proposed solution, Technologies used and Expected outcome)
+
+[12]: 3. Problem Statement
+[13]: (Clearly define the real-world problem and its importance)
+
+[14]: 4. Objectives
+[15]: List 3–5 measurable objectives 
+[16]: • Objective 1
+[17]: • Objective 2
+[18]: • Objective 3
+
+[19]: 5. Scope of the Project
+[20]: (Define what is included and limitations)
+
+[21]: 6. Literature Survey / Existing System
+[22]: (Describe existing systems and their drawbacks)
+
+[23]: 7. Proposed System
+[24]: (Explain your solution and how it improves existing systems)
+
+[25]: 8. Methodology
+[26]: • Requirement Analysis
+[27]: • Design (UML Diagrams)
+[28]: • Development
+[29]: • Testing
+
+[30]: 9. Tools & Technologies
+[31]: Programming Language:
+[32]: Database:
+[33]: Tools:
+
+[34]: 10. System Requirements
+[35]: Hardware:
+[36]: Software:
+
+[37]: 11. Expected Outcomes
+[38]: (Explain expected results and benefits)
+
+[39]: 12. Timeline / Work Plan (January 3rd week to May 1st week)
+[40]: 
+[41]: 13. References
+[42]: (Books, research papers, websites)
+
+[43]: Formatting Guidelines
+[44]: Font: Times New Roman Heading – 14 pt and Content - 12pt
+[45]: Line Spacing: 1.5	
+[46]: Length: 8–10 pages
+[47]: Include diagrams wherever needed
+[48]: Use proper in-text citations in IEEE format (e.g., [1], [2])
+
+--- TABLES ---
+Table 0:
+  Row 0: ['Phase', 'Activity', 'Duration']
+  Row 1: ['1', 'Requirement Analysis', '--Weeks--']
+  Row 2: ['2', 'Design', '--Weeks--']
+  Row 3: ['3', 'Development', '--Weeks--']
+  Row 4: ['4', 'Testing', '--Weeks--']

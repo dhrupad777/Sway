@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sway — Sprint Timeline</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background-color: #f5f5f7; 
+            color: #1d1d1f;
+            line-height: 1.47059;
+        }
+        .section-card {
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+            border: 1px solid rgba(0,0,0,0.08);
+            transition: transform 0.2s ease;
+        }
+        .section-card:hover {
+            transform: translateY(-2px);
+        }
+        .checkpoint-box {
+            background: #fbfbfd;
+            border-left: 4px solid #0071e3;
+        }
+        .date-text {
+            color: #86868b;
+            font-weight: 600;
+        }
+        .accent-blue { color: #0071e3; }
+        .bg-accent-blue { background-color: #0071e3; }
+    </style>
+</head>
+<body class="py-12 px-6">
+    <div class="max-w-3xl mx-auto">
+        
+        <header class="mb-12 border-b border-gray-200 pb-8">
+            <div class="flex items-center gap-2 mb-2">
+                <div class="w-3 h-3 rounded-full bg-accent-blue"></div>
+                <span class="text-sm font-extrabold uppercase tracking-widest accent-blue">Internal Roadmap</span>
+            </div>
+            <h1 class="text-5xl font-extrabold tracking-tight mb-4">Sway Implementation</h1>
+            <p class="text-xl text-gray-500 font-medium">April 16 — May 8, 2026</p>
+        </header>
+
+        <div class="space-y-6">
+
+            <div class="section-card p-8">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-extrabold">01. Walking Skeleton</h2>
+                    <span class="date-text">Apr 16 - 18</span>
+                </div>
+                <p class="text-gray-600 mb-6 font-medium">Core proxy logic using Fastify. Goal: `npx sway start` handles real OpenAI traffic.</p>
+                <div class="checkpoint-box p-4 rounded-r-lg">
+                    <span class="text-xs font-black uppercase tracking-tighter text-blue-600">Checkpoint</span>
+                    <p class="text-gray-900 font-bold">Zero observable difference vs direct OpenAI; Latency delta &lt; 20ms.</p>
+                </div>
+            </div>
+
+            <div class="section-card p-8">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-extrabold">02-03. Telemetry & Semantic Cache</h2>
+                    <span class="date-text">Apr 19 - 23</span>
+                </div>
+                <p class="text-gray-600 mb-6 font-medium">SQLite metrics store + Local embeddings (MiniLM). First attempt at "naive" similarity hits.</p>
+                <div class="checkpoint-box p-4 rounded-r-lg">
+                    <span class="text-xs font-black uppercase tracking-tighter text-blue-600">Checkpoint</span>
+                    <p class="text-gray-900 font-bold">Hit-rate ≥ 40% on paraphrase sets; Dashboard live at :8765/dashboard.</p>
+                </div>
+            </div>
+
+            <div class="section-card p-8 border-2 border-blue-500/20 shadow-xl shadow-blue-500/5">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <span class="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded-full uppercase mb-2 inline-block">Research Phase</span>
+                        <h2 class="text-2xl font-extrabold">04-05. The Brain: Judge & Optimizer</h2>
+                        <span class="block text-blue-600 font-bold mt-1">Research Contribution A & B</span>
+                    </div>
+                    <span class="date-text">Apr 24 - 28</span>
+                </div>
+                <p class="text-gray-700 mb-6 font-semibold">Gemini-based prompt canonicalization (CO-STAR) + Two-stage semantic validation.</p>
+                <div class="checkpoint-box p-4 rounded-r-lg border-l-blue-600 bg-blue-50/50">
+                    <span class="text-xs font-black uppercase tracking-tighter text-blue-700">Crucial Checkpoint</span>
+                    <p class="text-gray-900 font-bold text-lg">Hit-rate lift of +30% vs Section 3; Precision ≥ 0.95.</p>
+                </div>
+            </div>
+
+            <div class="section-card p-8">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-extrabold">06-07. UI Diff & Complexity Router</h2>
+                    <span class="date-text">Apr 29 - May 1</span>
+                </div>
+                <p class="text-gray-600 mb-6 font-medium">Apple-style side-by-side prompt diff view + Auto-routing to Gemini Flash/Haiku for simple tasks.</p>
+                <div class="checkpoint-box p-4 rounded-r-lg">
+                    <span class="text-xs font-black uppercase tracking-tighter text-blue-600">Checkpoint</span>
+                    <p class="text-gray-900 font-bold">Live demo shows raw → optimized rewrite within 3 seconds.</p>
+                </div>
+            </div>
+
+            <div class="section-card p-8 bg-gray-900 text-white">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-extrabold">08-10. Benchmarks & Demo Day</h2>
+                    <span class="text-gray-400 font-bold">May 2 - May 8</span>
+                </div>
+                <p class="text-gray-400 mb-6 font-medium">Run `pnpm bench` for the final paper numbers. Publish to npm. Record backup demo video.</p>
+                <div class="bg-white/10 p-4 rounded-lg border-l-4 border-white">
+                    <span class="text-xs font-black uppercase tracking-tighter text-gray-300">Final Target</span>
+                    <p class="text-white font-bold text-lg">≥ 40% Token Cost Reduction; Paper Ready (6-8 pages).</p>
+                </div>
+            </div>
+
+        </div>
+
+        <footer class="mt-16 text-center">
+            <p class="text-gray-400 text-sm font-bold">Sway Project Gateway — Confirmed for Presentation Window May 04.</p>
+        </footer>
+    </div>
+</body>
+</html>

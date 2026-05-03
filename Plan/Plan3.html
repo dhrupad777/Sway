@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sway — AUM Mini Project</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100;0,9..144,300;0,9..144,700;1,9..144,100;1,9..144,300;1,9..144,700&family=Outfit:wght@200;300;400;600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+/* ══════════════════════════════════════════════
+   DESIGN TOKENS
+   70% White · 20% Blue · 10% Black
+   Rooted in Itten color theory & Bringhurst typography
+══════════════════════════════════════════════ */
+:root{
+  --white:    #FAFAF8;
+  --white2:   #F0EFE9;
+  --white3:   #E2E0D8;
+  --blue:     #1A4BDB;
+  --blue2:    #2B5CE6;
+  --blue3:    #4B7AF8;
+  --blue-lt:  #C7D9FF;
+  --blue-xlt: #EEF3FF;
+  --ink:      #0D0D12;
+  --ink2:     #181820;
+  --ink3:     #252530;
+  --mid:      #6B6B7E;
+  --mid2:     #9494A4;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; font-size: 18px; }
+
+body {
+  background: var(--white);
+  color: var(--ink);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 300;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── CUSTOM CURSOR ── */
+#cursor {
+  position: fixed; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--blue); pointer-events: none; z-index: 9999;
+  transform: translate(-50%,-50%);
+  transition: width .2s, height .2s;
+}
+#cursor-ring {
+  position: fixed; width: 32px; height: 32px; border-radius: 50%;
+  border: 1px solid rgba(26,75,219,.28); pointer-events: none; z-index: 9998;
+  transform: translate(-50%,-50%);
+}
+body:hover #cursor { opacity: 1; }
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 56px; height: 80px;
+  background: rgba(250,250,248,.9);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--white3);
+}
+.nav-logo {
+  font-family: 'Fraunces', serif;
+  font-size: 26px; font-weight: 700; letter-spacing: -.04em; color: var(--ink);
+}
+.nav-logo em { color: var(--blue); font-style: italic; font-weight: 300; }
+.nav-links { display: flex; gap: 40px; list-style: none; }
+.nav-links a {
+  font-size: 13px; font-weight: 400; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--mid); text-decoration: none; transition: color .2s;
+}
+.nav-links a:hover { color: var(--blue); }
+.nav-badge {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; color: var(--blue);
+  border: 1px solid var(--blue-lt); background: var(--blue-xlt);
+  padding: 6px 16px; border-radius: 100px; letter-spacing: .08em;
+}
+
+/* ── HERO ── */
+.hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 160px 56px 100px;
+  position: relative; overflow: hidden;
+  background: var(--white);
+}
+
+/* Geometric background */
+.hero-bg { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.hero-bg-c1 {
+  position: absolute; border-radius: 50%;
+  width: 680px; height: 680px; top: -240px; right: -120px;
+  border: 1px solid rgba(26,75,219,.1);
+}
+.hero-bg-c2 {
+  position: absolute; border-radius: 50%;
+  width: 440px; height: 440px; top: -80px; right: 100px;
+  border: 1px solid rgba(26,75,219,.07);
+}
+.hero-bg-c3 {
+  position: absolute; border-radius: 50%;
+  width: 220px; height: 220px; top: 60px; right: 300px;
+  background: rgba(199,217,255,.22);
+}
+.hero-bg-sq {
+  position: absolute;
+  width: 300px; height: 300px; bottom: -80px; left: -60px;
+  border: 1px solid rgba(26,75,219,.06);
+  transform: rotate(18deg);
+}
+.hero-bg-dots {
+  position: absolute; top: 120px; right: 0;
+  width: 360px; height: 360px;
+  background-image: radial-gradient(rgba(26,75,219,.22) 1px, transparent 1px);
+  background-size: 24px 24px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 80% at 60% 40%, black, transparent);
+  mask-image: radial-gradient(ellipse 80% 80% at 60% 40%, black, transparent);
+}
+
+.hero-kicker {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--blue); margin-bottom: 40px;
+  display: flex; align-items: center; gap: 16px;
+  opacity: 0; animation: fadeUp .8s .1s forwards;
+}
+.hero-kicker::before { content: ''; display: block; width: 40px; height: 1px; background: var(--blue); }
+
+.hero-main {
+  display: grid; grid-template-columns: 1fr auto; align-items: flex-end; gap: 80px;
+  opacity: 0; animation: fadeUp .9s .25s forwards;
+}
+.hero-title {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(80px, 9.5vw, 140px);
+  font-weight: 100; line-height: .92; letter-spacing: -.04em;
+}
+.hero-title .t-italic { font-style: italic; color: var(--blue); font-weight: 300; }
+.hero-right { max-width: 400px; padding-bottom: 12px; }
+.hero-desc {
+  font-size: 18px; font-weight: 300; color: var(--mid);
+  line-height: 1.6; margin-bottom: 32px;
+}
+.hero-meta {
+  border-top: 1px solid var(--white3); padding-top: 24px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.hero-meta-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 14px;
+}
+.hero-meta-row span:first-child {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--mid2);
+}
+.hero-meta-row span:last-child { color: var(--ink); font-weight: 400; }
+.hero-scroll {
+  position: absolute; bottom: 48px; left: 56px;
+  font-family: 'Space Mono', monospace; font-size: 10px;
+  letter-spacing: .2em; text-transform: uppercase; color: var(--mid2);
+  display: flex; align-items: center; gap: 12px;
+  opacity: 0; animation: fadeUp .8s .6s forwards;
+}
+.hero-scroll::after {
+  content: ''; display: block; width: 48px; height: 1px; background: var(--mid2);
+  animation: scrollPulse 2.2s ease-in-out infinite;
+}
+@keyframes scrollPulse {
+  0%,100% { transform: scaleX(1); transform-origin: left; }
+  50%      { transform: scaleX(.4); transform-origin: right; }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── SHARED SECTION ── */
+.section { padding: 120px 56px; }
+.section-inner { max-width: 1300px; margin: 0 auto; }
+.s-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--blue); margin-bottom: 20px;
+  display: flex; align-items: center; gap: 12px;
+}
+.s-label::before { content: '↗'; font-size: 13px; }
+.s-heading {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(42px, 5vw, 68px);
+  font-weight: 300; letter-spacing: -.02em; line-height: 1.05;
+  margin-bottom: 20px;
+}
+.s-heading em { color: var(--blue); font-style: italic; }
+.s-sub {
+  font-size: 18px; color: var(--mid); font-weight: 300;
+  max-width: 540px; line-height: 1.7;
+}
+.rule { height: 1px; background: var(--white3); margin: 0 56px; }
+
+/* ── ARCHITECTURE ── */
+.arch-section { background: var(--white); padding: 120px 56px; }
+.arch-cards {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 1px; background: var(--white3);
+  border: 1px solid var(--white3);
+  margin-top: 80px;
+}
+.arch-card {
+  background: var(--white); padding: 56px 40px;
+  position: relative; overflow: hidden;
+  transition: background .3s, transform .3s;
+}
+.arch-card:hover { background: var(--blue-xlt); }
+.arch-card.featured { background: var(--blue); }
+.arch-card.featured:hover { background: var(--blue2); }
+.arch-num {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--mid2); margin-bottom: 40px;
+}
+.arch-card.featured .arch-num { color: rgba(255,255,255,.55); }
+.arch-icon { margin-bottom: 32px; }
+.arch-icon svg { width: 48px; height: 48px; display: block; }
+.arch-title {
+  font-family: 'Fraunces', serif;
+  font-size: 28px; font-weight: 600; letter-spacing: -.02em;
+  margin-bottom: 16px; color: var(--ink);
+}
+.arch-card.featured .arch-title { color: #fff; }
+.arch-desc { font-size: 16px; font-weight: 300; color: var(--mid); line-height: 1.7; }
+.arch-card.featured .arch-desc { color: rgba(255,255,255,.8); }
+.arch-tag {
+  margin-top: 36px;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--blue); display: flex; align-items: center; gap: 8px;
+}
+.arch-tag::before { content: ''; width: 16px; height: 1px; background: var(--blue); display: block; }
+.arch-card.featured .arch-tag { color: rgba(255,255,255,.65); }
+.arch-card.featured .arch-tag::before { background: rgba(255,255,255,.5); }
+
+/* ── EVALUATION ── */
+.eval-section { background: var(--ink); padding: 120px 56px; }
+.eval-section .s-label { color: var(--blue3); }
+.eval-section .s-heading { color: #fff; }
+.eval-section .s-sub { color: var(--mid2); }
+.eval-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 2px; background: rgba(255,255,255,.05);
+  margin-top: 80px;
+}
+.eval-panel { background: var(--ink2); padding: 56px; }
+.eval-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding-bottom: 32px; border-bottom: 1px solid rgba(255,255,255,.06);
+  margin-bottom: 40px;
+}
+.eval-title {
+  font-family: 'Fraunces', serif;
+  font-size: 26px; font-weight: 300; color: #fff; letter-spacing: -.01em;
+}
+.eval-by {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; color: var(--mid2); letter-spacing: .12em;
+  text-transform: uppercase; margin-top: 8px;
+}
+.eval-score {
+  font-family: 'Fraunces', serif;
+  font-size: 64px; font-weight: 100; letter-spacing: -.04em;
+  line-height: 1; color: var(--blue3); text-align: right;
+}
+.eval-score-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; color: var(--mid2); letter-spacing: .12em;
+  text-transform: uppercase; text-align: right;
+}
+.chart-wrap {
+  position: relative; display: flex;
+  align-items: center; justify-content: center;
+  height: 240px; margin-bottom: 40px;
+}
+.chart-wrap canvas { max-width: 240px; max-height: 240px; }
+.chart-center {
+  position: absolute; text-align: center; pointer-events: none;
+}
+.chart-center-big {
+  font-family: 'Fraunces', serif;
+  font-size: 36px; font-weight: 300; color: #fff; line-height: 1;
+}
+.chart-center-sm {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; color: var(--mid2); letter-spacing: .1em;
+  text-transform: uppercase; margin-top: 6px;
+}
+
+/* Guide rows */
+.g-rows { display: flex; flex-direction: column; gap: 0; }
+.g-row {
+  display: flex; align-items: center; gap: 16px;
+  padding: 16px 0; border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.g-row:last-child { border-bottom: none; }
+.g-code {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; color: var(--blue3); min-width: 26px; letter-spacing: .08em;
+}
+.g-track { flex: 1; height: 3px; background: rgba(255,255,255,.06); border-radius: 2px; overflow: hidden; }
+.g-fill { height: 100%; background: var(--blue2); border-radius: 2px; width: 0; transition: width 1.2s cubic-bezier(.16,1,.3,1); }
+.g-name { font-size: 14px; color: rgba(255,255,255,.5); min-width: 140px; font-weight: 300; }
+.g-pts { font-family: 'Space Mono', monospace; font-size: 13px; color: rgba(255,255,255,.6); min-width: 44px; text-align: right; }
+
+/* Panel rows */
+.p-rows { display: grid; grid-template-columns: 1fr 1fr; }
+.p-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.p-row:nth-child(odd)  { padding-right: 24px; }
+.p-row:nth-child(even) { padding-left: 24px; border-left: 1px solid rgba(255,255,255,.04); }
+.p-row:nth-last-child(-n+2) { border-bottom: none; }
+.p-code { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--blue3); min-width: 26px; }
+.p-name { font-size: 14px; color: rgba(255,255,255,.45); font-weight: 300; flex: 1; }
+.p-pts  { font-family: 'Space Mono', monospace; font-size: 12px; color: rgba(255,255,255,.35); }
+
+/* ── TIMELINE ── */
+.tl-section { background: var(--white); padding: 120px 56px; }
+.tl-grid {
+  display: grid; grid-template-columns: 2fr 3fr;
+  gap: 100px; margin-top: 80px; align-items: start;
+}
+.tl-left { position: sticky; top: 120px; }
+.tl-big {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(100px,13vw,160px);
+  font-weight: 100; letter-spacing: -.06em; line-height: .85;
+  color: var(--blue); margin-bottom: 8px;
+}
+.tl-big-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--mid2); margin-bottom: 56px;
+}
+.tl-prog-head {
+  display: flex; justify-content: space-between;
+  font-family: 'Space Mono', monospace; font-size: 10px;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--mid2);
+  margin-bottom: 12px;
+}
+.tl-prog-track { height: 3px; background: var(--white3); border-radius: 2px; overflow: hidden; margin-bottom: 56px; }
+.tl-prog-fill  { height: 100%; background: var(--blue); border-radius: 2px; width: 0; transition: width 1.4s cubic-bezier(.16,1,.3,1); }
+.tl-score-card {
+  background: var(--blue); padding: 36px 40px;
+  display: flex; align-items: baseline; gap: 20px;
+}
+.tl-score-num {
+  font-family: 'Fraunces', serif;
+  font-size: 68px; font-weight: 100; letter-spacing: -.04em;
+  color: #fff; line-height: 1;
+}
+.tl-score-info { font-size: 15px; font-weight: 300; color: rgba(255,255,255,.7); line-height: 1.6; }
+
+/* Timeline items */
+.tl-items { position: relative; display: flex; flex-direction: column; }
+.tl-items::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 1px; background: var(--white3);
+}
+.tl-item {
+  display: grid; grid-template-columns: 150px 1fr;
+  gap: 32px; padding: 36px 0 36px 40px;
+  border-bottom: 1px solid var(--white3);
+  position: relative;
+}
+.tl-item:first-child { padding-top: 0; }
+.tl-item:last-child  { border-bottom: none; padding-bottom: 0; }
+.tl-item::before {
+  content: ''; position: absolute; left: -5px; top: 36px;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--white3); border: 2px solid var(--white);
+  transition: background .3s, transform .3s;
+}
+.tl-item:first-child::before { top: 0; }
+.tl-item.active::before { background: var(--blue); transform: scale(1.3); }
+.tl-item.done { opacity: .35; }
+.tl-date {
+  font-family: 'Space Mono', monospace; font-size: 12px;
+  color: var(--mid2); letter-spacing: .04em; padding-top: 4px;
+}
+.tl-item.active .tl-date { color: var(--blue); }
+.tl-title { font-size: 20px; font-weight: 400; color: var(--ink); margin-bottom: 10px; }
+.tl-badge {
+  display: inline-block;
+  font-family: 'Space Mono', monospace; font-size: 10px;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--blue); background: var(--blue-xlt);
+  border: 1px solid var(--blue-lt); padding: 4px 12px; border-radius: 100px;
+}
+
+/* ── FOOTER ── */
+footer {
+  background: var(--ink); padding: 64px 56px;
+  display: flex; justify-content: space-between; align-items: center;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.footer-brand {
+  font-family: 'Fraunces', serif;
+  font-size: 30px; font-weight: 100; letter-spacing: -.03em; color: #fff;
+}
+.footer-brand em { color: var(--blue3); font-style: italic; }
+.footer-note {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--mid);
+}
+
+/* ── SCROLL REVEAL ── */
+.reveal { opacity: 0; transform: translateY(28px); transition: opacity .75s cubic-bezier(.16,1,.3,1), transform .75s cubic-bezier(.16,1,.3,1); }
+.reveal.in { opacity: 1; transform: none; }
+.d1 { transition-delay: .08s; }
+.d2 { transition-delay: .16s; }
+.d3 { transition-delay: .24s; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1024px) {
+  .tl-grid { grid-template-columns: 1fr; gap: 64px; }
+  .tl-left  { position: static; }
+  .tl-big   { font-size: 110px; }
+}
+@media (max-width: 860px) {
+  nav { padding: 0 24px; }
+  .nav-links { display: none; }
+  .hero, .arch-section, .eval-section, .tl-section, .section { padding: 100px 24px; }
+  .rule { margin: 0 24px; }
+  .hero-main { grid-template-columns: 1fr; gap: 48px; }
+  .hero-right { max-width: 100%; }
+  .arch-cards { grid-template-columns: 1fr; }
+  .arch-card { padding: 48px 32px; }
+  .eval-grid { grid-template-columns: 1fr; }
+  .eval-panel { padding: 40px 24px; }
+  .p-rows { grid-template-columns: 1fr; }
+  .p-row:nth-child(even) { padding-left: 0; border-left: none; }
+  .tl-item { grid-template-columns: 120px 1fr; gap: 20px; padding-left: 32px; }
+  footer { flex-direction: column; gap: 24px; text-align: center; padding: 48px 24px; }
+}
+@media (max-width: 540px) {
+  .hero-title { font-size: clamp(64px,15vw,90px); }
+  .s-heading  { font-size: 38px; }
+  .tl-item    { grid-template-columns: 1fr; gap: 8px; padding-left: 24px; }
+  .tl-date    { padding-top: 0; }
+  .tl-big     { font-size: 90px; }
+  .eval-score { font-size: 48px; }
+  footer      { padding: 40px 24px; }
+}
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<nav>
+  <div class="nav-logo">Sway <em>↗</em></div>
+  <ul class="nav-links">
+    <li><a href="#arch">Architecture</a></li>
+    <li><a href="#eval">Evaluation</a></li>
+    <li><a href="#timeline">Timeline</a></li>
+  </ul>
+  <div class="nav-badge">AUM · 6th Sem · CSE</div>
+</nav>
+
+<section class="hero" id="top">
+  <div class="hero-bg">
+    <div class="hero-bg-c1"></div>
+    <div class="hero-bg-c2"></div>
+    <div class="hero-bg-c3"></div>
+    <div class="hero-bg-sq"></div>
+    <div class="hero-bg-dots"></div>
+  </div>
+
+  <div class="hero-kicker">CSE Department · AUM Mini Project · Spring 2026</div>
+
+  <div class="hero-main">
+    <div>
+      <h1 class="hero-title">
+        Project<br>
+        <span class="t-italic">Sway</span>
+      </h1>
+    </div>
+    <div class="hero-right">
+      <p class="hero-desc">An intelligent LLM gateway engineered to eliminate compute waste through semantic caching, cascade routing, and agentic task decomposition.</p>
+      <div class="hero-meta">
+        <div class="hero-meta-row"><span>Department</span><span>Computer Science &amp; Engineering</span></div>
+        <div class="hero-meta-row"><span>Semester</span><span>6th · Spring 2026</span></div>
+        <div class="hero-meta-row"><span>University</span><span>AUM</span></div>
+        <div class="hero-meta-row"><span>Total Marks</span><span>100 Points</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-scroll">Scroll to explore</div>
+</section>
+
+<div class="rule"></div>
+
+<section class="arch-section" id="arch">
+  <div class="section-inner">
+    <div class="s-label reveal">The System</div>
+    <h2 class="s-heading reveal d1">Three-Layer <em>Architecture</em></h2>
+    <p class="s-sub reveal d2">Each layer targets a distinct category of AI compute waste — stacked for compounding efficiency.</p>
+
+    <div class="arch-cards reveal d1">
+      <div class="arch-card">
+        <div class="arch-num">Layer 01</div>
+        <div class="arch-icon">
+          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="20" cy="20" r="14" stroke="#1A4BDB" stroke-width="1"/>
+            <circle cx="20" cy="20" r="8" stroke="#1A4BDB" stroke-width="1" stroke-dasharray="3 3"/>
+            <circle cx="20" cy="20" r="3" fill="#1A4BDB"/>
+          </svg>
+        </div>
+        <div class="arch-title">Semantic Caching</div>
+        <div class="arch-desc">Vectorising inputs to detect semantically equivalent queries and serve cached responses. Zero compute cost, zero API spend on repeat patterns.</div>
+        <div class="arch-tag">Zero Cost Layer</div>
+      </div>
+
+      <div class="arch-card featured">
+        <div class="arch-num">Layer 02</div>
+        <div class="arch-icon">
+          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M6 20 L18 8 L34 20 L18 32 Z" stroke="rgba(255,255,255,.6)" stroke-width="1"/>
+            <path d="M12 20 L20 12 L28 20 L20 28 Z" fill="rgba(255,255,255,.12)" stroke="white" stroke-width="1"/>
+            <circle cx="20" cy="20" r="2.5" fill="white"/>
+          </svg>
+        </div>
+        <div class="arch-title">Intelligent Routing</div>
+        <div class="arch-desc">Dynamically directing simple tasks to lightweight models and complex reasoning to heavy models. Token efficiency maximised on every single call.</div>
+        <div class="arch-tag">Core Intelligence</div>
+      </div>
+
+      <div class="arch-card">
+        <div class="arch-num">Layer 03</div>
+        <div class="arch-icon">
+          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="6"  y="12" width="28" height="4" rx="1" stroke="#1A4BDB" stroke-width="1"/>
+            <rect x="10" y="20" width="20" height="4" rx="1" stroke="#1A4BDB" stroke-width="1"/>
+            <rect x="14" y="28" width="12" height="4" rx="1" fill="rgba(26,75,219,.15)" stroke="#1A4BDB" stroke-width="1"/>
+          </svg>
+        </div>
+        <div class="arch-title">Agentic Chunking</div>
+        <div class="arch-desc">Deconstructing complex requests into deterministic multi-step pipelines. Hallucination eliminated by structural enforcement at every stage.</div>
+        <div class="arch-tag">Anti-Hallucination</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="rule"></div>
+
+<section class="eval-section" id="eval">
+  <div class="section-inner">
+    <div class="s-label reveal">Academic Alignment</div>
+    <h2 class="s-heading reveal d1">Evaluation <em>Rubric</em></h2>
+    <p class="s-sub reveal d2">100 marks split across two assessors — every technical deliverable maps to a specific criterion.</p>
+
+    <div class="eval-grid reveal d1">
+
+      <div class="eval-panel">
+        <div class="eval-head">
+          <div>
+            <div class="eval-title">Guide Evaluation</div>
+            <div class="eval-by">Assessed by Project Guide</div>
+          </div>
+          <div>
+            <div class="eval-score">60</div>
+            <div class="eval-score-label">marks</div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="guideChart" width="240" height="240"></canvas>
+          <div class="chart-center">
+            <div class="chart-center-big">60</div>
+            <div class="chart-center-sm">Guide</div>
+          </div>
+        </div>
+        <div class="g-rows" id="guideRows">
+          <div class="g-row">
+            <span class="g-code">R1</span>
+            <div class="g-track"><div class="g-fill" data-pct="16.7"></div></div>
+            <span class="g-name">Timely Follow-up</span>
+            <span class="g-pts">10 pts</span>
+          </div>
+          <div class="g-row">
+            <span class="g-code">R2</span>
+            <div class="g-track"><div class="g-fill" data-pct="25"></div></div>
+            <span class="g-name">Timely Submissions</span>
+            <span class="g-pts">15 pts</span>
+          </div>
+          <div class="g-row">
+            <span class="g-code">R3</span>
+            <div class="g-track"><div class="g-fill" data-pct="25"></div></div>
+            <span class="g-name">Quality of Report</span>
+            <span class="g-pts">15 pts</span>
+          </div>
+          <div class="g-row">
+            <span class="g-code">R4</span>
+            <div class="g-track"><div class="g-fill" data-pct="33.3"></div></div>
+            <span class="g-name">Research Paper</span>
+            <span class="g-pts">20 pts</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="eval-panel">
+        <div class="eval-head">
+          <div>
+            <div class="eval-title">Final Presentation</div>
+            <div class="eval-by">Assessed by Panel</div>
+          </div>
+          <div>
+            <div class="eval-score">40</div>
+            <div class="eval-score-label">marks</div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="panelChart" width="240" height="240"></canvas>
+          <div class="chart-center">
+            <div class="chart-center-big">40</div>
+            <div class="chart-center-sm">Panel</div>
+          </div>
+        </div>
+        <div class="p-rows">
+          <div class="p-row"><span class="p-code">R5</span><span class="p-name">Literature Review</span><span class="p-pts">05</span></div>
+          <div class="p-row"><span class="p-code">R6</span><span class="p-name">Methodology</span><span class="p-pts">05</span></div>
+          <div class="p-row"><span class="p-code">R7</span><span class="p-name">Implementation</span><span class="p-pts">05</span></div>
+          <div class="p-row"><span class="p-code">R8</span><span class="p-name">Results &amp; Analysis</span><span class="p-pts">05</span></div>
+          <div class="p-row"><span class="p-code">R9</span><span class="p-name">Presentation Skills</span><span class="p-pts">05</span></div>
+          <div class="p-row"><span class="p-code">R10</span><span class="p-name">Teamwork</span><span class="p-pts">05</span></div>
+          <div class="p-row"><span class="p-code">R11</span><span class="p-name">Innovation</span><span class="p-pts">05</span></div>
+          <div class="p-row"><span class="p-code">R12</span><span class="p-name">Work Completion</span><span class="p-pts">05</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="rule"></div>
+
+<section class="tl-section" id="timeline">
+  <div class="section-inner">
+    <div class="s-label reveal">Spring 2026</div>
+    <h2 class="s-heading reveal d1">Project <em>Timeline</em></h2>
+    <p class="s-sub reveal d2">Submission windows and presentation dates for the current academic cycle.</p>
+
+    <div class="tl-grid">
+      <div class="tl-left reveal">
+        <div class="tl-big" id="daysNum">—</div>
+        <div class="tl-big-label">Days to Final Presentation</div>
+        <div class="tl-prog-head">
+          <span>Mar 11</span>
+          <span id="pctLabel">—% elapsed</span>
+        </div>
+        <div class="tl-prog-track">
+          <div class="tl-prog-fill" id="pctBar"></div>
+        </div>
+        <div class="tl-score-card">
+          <div class="tl-score-num">100</div>
+          <div class="tl-score-info">Total marks<br>available across<br>guide &amp; panel</div>
+        </div>
+      </div>
+
+      <div class="tl-items reveal d1" id="tlItems">
+        <div class="tl-item" id="tl0">
+          <div class="tl-date">11 Mar 2026</div>
+          <div>
+            <div class="tl-title">Presentation – 1</div>
+            <div class="tl-badge">Completed</div>
+          </div>
+        </div>
+        <div class="tl-item" id="tl1">
+          <div class="tl-date">16 Mar 2026</div>
+          <div><div class="tl-title">Meeting with Guide</div></div>
+        </div>
+        <div class="tl-item" id="tl2">
+          <div class="tl-date">17 Mar 2026</div>
+          <div><div class="tl-title">Abstract Submission</div></div>
+        </div>
+        <div class="tl-item" id="tl3">
+          <div class="tl-date">23 Mar 2026</div>
+          <div><div class="tl-title">Synopsis Submission</div></div>
+        </div>
+        <div class="tl-item" id="tl4">
+          <div class="tl-date">04 May 2026</div>
+          <div>
+            <div class="tl-title">Research Paper &amp; Report</div>
+            <div class="tl-badge">R3 · R4 Deadline</div>
+          </div>
+        </div>
+        <div class="tl-item" id="tl5">
+          <div class="tl-date">6 – 8 May 2026</div>
+          <div>
+            <div class="tl-title">Final Presentation</div>
+            <div class="tl-badge">Panel · 40 Marks</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-brand">Sway <em>↗</em></div>
+  <div class="footer-note">Built for efficiency · Designed for impact · AUM CSE 2026</div>
+</footer>
+
+<script>
+/* ── Custom cursor ── */
+let mx = innerWidth/2, my = innerHeight/2, rx = mx, ry = my;
+const cur  = document.getElementById('cursor');
+const ring = document.getElementById('cursor-ring');
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  cur.style.left = mx+'px'; cur.style.top = my+'px';
+});
+(function loop(){
+  rx += (mx-rx)*0.12; ry += (my-ry)*0.12;
+  ring.style.left = rx+'px'; ring.style.top = ry+'px';
+  requestAnimationFrame(loop);
+})();
+
+/* ── Scroll reveal ── */
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('in'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+
+/* ── Bar fills ── */
+const barObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(e.isIntersecting){
+      e.target.querySelectorAll('[data-pct]').forEach(b => {
+        setTimeout(() => { b.style.width = b.dataset.pct + '%'; }, 400);
+      });
+    }
+  });
+}, { threshold: 0.3 });
+document.querySelectorAll('#guideRows').forEach(el => barObs.observe(el));
+
+/* ── Days / progress ── */
+const today    = new Date();
+const finalDt  = new Date('2026-05-06');
+const startDt  = new Date('2026-03-11');
+const endDt    = new Date('2026-05-08');
+const days     = Math.max(0, Math.ceil((finalDt - today) / 86400000));
+document.getElementById('daysNum').textContent = days;
+const total    = (endDt - startDt) / 86400000;
+const elapsed  = Math.max(0, Math.min(total, (today - startDt) / 86400000));
+const pct      = Math.round(elapsed / total * 100);
+setTimeout(() => {
+  document.getElementById('pctBar').style.width  = pct + '%';
+  document.getElementById('pctLabel').textContent = pct + '% elapsed';
+}, 600);
+
+/* ── Timeline state ── */
+const tlDates = [
+  new Date('2026-03-11'), new Date('2026-03-16'), new Date('2026-03-17'),
+  new Date('2026-03-23'), new Date('2026-05-04'), new Date('2026-05-06')
+];
+const nextIdx = tlDates.findIndex(d => d >= today);
+tlDates.forEach((d, i) => {
+  const el = document.getElementById('tl' + i);
+  if (!el) return;
+  if (i < (nextIdx < 0 ? tlDates.length : nextIdx)) el.classList.add('done');
+  if (i === nextIdx) el.classList.add('active');
+});
+
+/* ── Chart.js — Guide donut ── */
+new Chart(document.getElementById('guideChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Timely Follow-up (R1)', 'Timely Submissions (R2)', 'Quality of Report (R3)', 'Research Paper (R4)'],
+    datasets: [{
+      data: [10, 15, 15, 20],
+      backgroundColor: ['#1A4BDB', '#2B5CE6', '#4B7AF8', '#C7D9FF'],
+      borderColor: '#181820',
+      borderWidth: 3,
+      hoverOffset: 8,
+    }]
+  },
+  options: {
+    responsive: false,
+    cutout: '70%',
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: { label: c => ' ' + c.label + ': ' + c.parsed + ' marks' },
+        backgroundColor: '#0D0D12',
+        titleColor: '#4B7AF8',
+        bodyColor: '#9494A4',
+        borderColor: 'rgba(75,122,248,.2)',
+        borderWidth: 1,
+      }
+    },
+    animation: { animateRotate: true, duration: 1100, easing: 'easeOutQuart' },
+  }
+});
+
+/* ── Chart.js — Panel donut ── */
+new Chart(document.getElementById('panelChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['R5 Lit. Review','R6 Methodology','R7 Implementation','R8 Results','R9 Presentation','R10 Teamwork','R11 Innovation','R12 Completion'],
+    datasets: [{
+      data: [5,5,5,5,5,5,5,5],
+      backgroundColor: ['#1A4BDB','#2055E0','#2760E5','#2F6AEA','#3674EF','#3E7DF4','#4B7AF8','#6E95FA'],
+      borderColor: '#181820',
+      borderWidth: 3,
+      hoverOffset: 6,
+    }]
+  },
+  options: {
+    responsive: false,
+    cutout: '70%',
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: { label: c => ' ' + c.label + ': 5 marks' },
+        backgroundColor: '#0D0D12',
+        titleColor: '#4B7AF8',
+        bodyColor: '#9494A4',
+        borderColor: 'rgba(75,122,248,.2)',
+        borderWidth: 1,
+      }
+    },
+    animation: { animateRotate: true, duration: 1300, easing: 'easeOutQuart' },
+  }
+});
+</script>
+</body>
+</html>

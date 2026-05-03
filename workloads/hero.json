@@ -1,0 +1,10 @@
+{
+  "name": "hero",
+  "description": "4-prompt paraphrase cluster for live demo. Same intent (explain hash maps), 4 student-style phrasings. Optimizer canonicalizes all 4 to the same template; router sends all to Flash; sway.md keeps answers short.",
+  "prompts": [
+    "what's a hash map",
+    "explain hashmaps to me like im dumb",
+    "im confused about dictionaries in python how do they actually work",
+    "key value stores wat"
+  ]
+}

@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Sway Works — Request Lifecycle</title>
+<style>
+  :root {
+    --navy: #1f3864;
+    --blue: #2e75b6;
+    --lblue: #ddeeff;
+    --green: #27ae60;
+    --lgreen: #eafaf1;
+    --amber: #e67e22;
+    --lamber: #fef9ef;
+    --purple: #7f77dd;
+    --lpurp: #f0effe;
+    --red: #e74c3c;
+    --lred: #fdf0ef;
+    --grey: #f6f7f8;
+    --border: #e2e6ea;
+    --text: #1a1a2e;
+    --muted: #6b7280;
+    --white: #ffffff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f0f4f8;
+    color: var(--text);
+    padding: 40px 20px 80px;
+    line-height: 1.6;
+  }
+
+  .page { max-width: 860px; margin: 0 auto; }
+
+  /* ── Header ── */
+  .hero {
+    text-align: center;
+    margin-bottom: 52px;
+  }
+  .hero .badge {
+    display: inline-block;
+    background: var(--navy);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 4px 14px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 10px;
+    letter-spacing: -.5px;
+  }
+  .hero p {
+    font-size: 17px;
+    color: var(--muted);
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  /* ── Summary bar ── */
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 52px;
+  }
+  .summary-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    text-align: center;
+  }
+  .summary-card .num {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .summary-card .lbl {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .summary-card.green .num  { color: var(--green); }
+  .summary-card.blue .num   { color: var(--blue); }
+  .summary-card.purple .num { color: var(--purple); }
+
+  /* ── Section heading ── */
+  .section-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  /* ── Steps ── */
+  .steps { position: relative; }
+
+  .step {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 0 20px;
+    margin-bottom: 8px;
+    position: relative;
+  }
+
+  .step-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .step-num {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 700;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .step-line {
+    width: 2px;
+    flex: 1;
+    min-height: 32px;
+    margin: 4px 0;
+  }
+
+  .step-body {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin-bottom: 8px;
+    transition: box-shadow .2s;
+  }
+  .step-body:hover { box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+
+  .step-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .step-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .step-subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .tag.blue   { background: var(--lblue); color: var(--blue); }
+  .tag.green  { background: var(--lgreen); color: var(--green); }
+  .tag.amber  { background: var(--lamber); color: var(--amber); }
+  .tag.purple { background: var(--lpurp); color: var(--purple); }
+  .tag.red    { background: var(--lred); color: var(--red); }
+  .tag.navy   { background: #e8ecf5; color: var(--navy); }
+
+  /* Step accent colours */
+  .step.s0 .step-num { background: #e8ecf5; color: var(--navy); }
+  .step.s0 .step-line { background: #c5cee0; }
+
+  .step.s1 .step-num { background: var(--lpurp); color: var(--purple); }
+  .step.s1 .step-line { background: #c5b9f5; }
+  .step.s1 .step-body { border-left: 3px solid var(--purple); }
+
+  .step.s2 .step-num { background: var(--lgreen); color: var(--green); }
+  .step.s2 .step-line { background: #a8dfc0; }
+  .step.s2 .step-body { border-left: 3px solid var(--green); }
+
+  .step.s3 .step-num { background: var(--lamber); color: var(--amber); }
+  .step.s3 .step-line { background: #f5c99a; }
+  .step.s3 .step-body { border-left: 3px solid var(--amber); }
+
+  .step.s4 .step-num { background: var(--lblue); color: var(--blue); }
+  .step.s4 .step-line { background: #9ec5e8; }
+  .step.s4 .step-body { border-left: 3px solid var(--blue); }
+
+  .step.s5 .step-num { background: var(--lgreen); color: var(--green); }
+  .step.s5 .step-line { display: none; }
+  .step.s5 .step-body { border-left: 3px solid var(--green); }
+
+  /* ── Fork block (HIT / MISS) ── */
+  .fork {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .fork-card {
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .fork-card.hit  { background: var(--lgreen); }
+  .fork-card.miss { background: var(--lred); }
+  .fork-card .fork-head {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .fork-card.hit  .fork-head { color: var(--green); }
+  .fork-card.miss .fork-head { color: var(--red); }
+  .fork-card p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* ── Model tier ── */
+  .model-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .model-card {
+    border-radius: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+  }
+  .model-card .model-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .model-card .model-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .model-card .model-desc { font-size: 12px; color: var(--muted); }
+  .model-card.nano  { background: var(--lamber); border-color: #f5c99a; }
+  .model-card.nano  .model-label { color: var(--amber); }
+  .model-card.flag  { background: var(--lblue);  border-color: #9ec5e8; }
+  .model-card.flag  .model-label { color: var(--blue); }
+
+  /* ── Prompt example ── */
+  .prompt-example {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .prompt-box {
+    background: var(--grey);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .prompt-box .prompt-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .prompt-box.raw  .prompt-label { color: var(--red); }
+  .prompt-box.opt  .prompt-label { color: var(--green); }
+  .prompt-box.raw  { border-left: 3px solid var(--red); }
+  .prompt-box.opt  { border-left: 3px solid var(--green); background: var(--lgreen); }
+  .prompt-box pre  { font-family: inherit; white-space: pre-wrap; color: var(--text); }
+
+  /* ── Arrow between prompt boxes ── */
+  .arrow-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 4px 0;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .arrow-row .arrow-icon { font-size: 18px; color: var(--purple); }
+
+  /* ── Savings callout ── */
+  .savings {
+    background: linear-gradient(135deg, #1f3864 0%, #2e75b6 100%);
+    background: var(--navy);
+    border-radius: 14px;
+    padding: 28px 32px;
+    margin-top: 52px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 24px;
+    text-align: center;
+  }
+  .savings h2 {
+    grid-column: 1/-1;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .savings p.sub {
+    grid-column: 1/-1;
+    color: rgba(255,255,255,.65);
+    font-size: 13px;
+    margin-top: -16px;
+    margin-bottom: 8px;
+  }
+  .savings-item .s-num {
+    font-size: 32px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .savings-item .s-lbl {
+    font-size: 12px;
+    color: rgba(255,255,255,.65);
+    margin-top: 2px;
+  }
+
+  /* ── Footer note ── */
+  .footnote {
+    margin-top: 40px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .footnote span { color: var(--blue); font-weight: 500; }
+
+  @media (max-width: 600px) {
+    .fork, .model-grid, .prompt-example { grid-template-columns: 1fr; }
+    .summary { grid-template-columns: 1fr; }
+    .savings { grid-template-columns: 1fr; }
+    .savings h2, .savings p.sub { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="badge">Sway · Request Lifecycle</div>
+    <h1>What happens to your AI request?</h1>
+    <p>Every time you ask an AI a question through Sway, this is the journey it takes — and how Sway quietly makes it cheaper and faster.</p>
+  </div>
+
+  <!-- Summary bar -->
+  <div class="summary">
+    <div class="summary-card green">
+      <div class="num">≥ 40%</div>
+      <div class="lbl">API cost saved</div>
+    </div>
+    <div class="summary-card blue">
+      <div class="num">≥ 70%</div>
+      <div class="lbl">Cache hit-rate with optimizer</div>
+    </div>
+    <div class="summary-card purple">
+      <div class="num">&lt; 300 ms</div>
+      <div class="lbl">Optimizer overhead (p50)</div>
+    </div>
+  </div>
+
+  <!-- Steps -->
+  <p class="section-title">Step-by-step lifecycle</p>
+
+  <div class="steps">
+
+    <!-- Step 0 -->
+    <div class="step s0">
+      <div class="step-left">
+        <div class="step-num">0</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-header">
+          <div class="step-title">You type a prompt in your app</div>
+          <span class="tag navy">Your IDE / app</span>
+        </div>
+        <p class="step-subtitle">You're using Cursor, VS Code, or any app that talks to an AI. You type something like <em>"hey can u help me fix this weird openai error lol"</em> — messy, informal, incomplete.</p>
+        <p class="step-subtitle">Normally this goes straight to OpenAI and costs tokens. With Sway, you've changed one setting: your <strong>base URL now points to <code>localhost:8765</code></strong> instead of OpenAI. That's the only change required.</p>
+      </div>
+    </div>
+
+    <!-- Step 1 -->
+    <div class="step s1">
+      <div class="step-left">
+        <div class="step-num">1</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-header">
+          <div class="step-title">Sway rewrites your prompt</div>
+          <span class="tag purple">Layer 0 · Optimizer</span>
+        </div>
+        <p class="step-subtitle">Before doing anything else, Sway sends your messy prompt to a cheap, fast AI (Gemini Flash) and asks it two things: <em>what is this person actually trying to do?</em> and <em>rewrite this into a clear, structured prompt.</em></p>
+        <p class="step-subtitle">The result is a <strong>golden-form prompt</strong> — role defined, task clear, constraints explicit. This is the secret weapon: 10 different ways of asking "debug my code" all become the same clean prompt, so they can share a cached answer.</p>
+
+        <div class="prompt-example">
+          <div class="prompt-box raw">
+            <div class="prompt-label">Before (your raw prompt)</div>
+            <pre>hey can u help me fix this
+weird openai error lol
+heres my code: [...]
+plz help asap its urgent</pre>
+          </div>
+          <div class="prompt-box opt">
+            <div class="prompt-label">After (optimised by Sway)</div>
+            <pre>## Role
+You are a senior Node.js engineer.
+
+## Task
+Debug the following OpenAI API
+call that triggers a token error.
+Return: root cause + fix.</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step s2">
+      <div class="step-left">
+        <div class="step-num">2</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-header">
+          <div class="step-title">Sway checks if it already knows the answer</div>
+          <span class="tag green">Layer 1 · Semantic Cache</span>
+        </div>
+        <p class="step-subtitle">Sway looks up the optimised prompt in its local memory (a tiny database on your computer). It doesn't look for an exact word-for-word match — it understands <em>meaning</em>. So "debug my openai call" and "fix my openai error" are recognised as the same question.</p>
+
+        <p class="step-subtitle">There are three checks, fastest first:</p>
+
+        <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px;">
+            <span style="background: #e8ecf5; color: var(--navy); font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 20px; white-space: nowrap; margin-top: 2px;">Check 1</span>
+            <span><strong>Exact match</strong> — literally the same prompt? Return the cached answer instantly.</span>
+          </div>
+          <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px;">
+            <span style="background: var(--lgreen); color: var(--green); font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 20px; white-space: nowrap; margin-top: 2px;">Check 2</span>
+            <span><strong>Similar meaning</strong> — using AI embeddings (think: word coordinates), find prompts with the same intent. Similarity threshold: 92%.</span>
+          </div>
+          <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px;">
+            <span style="background: var(--lamber); color: var(--amber); font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 20px; white-space: nowrap; margin-top: 2px;">Check 3</span>
+            <span><strong>Judge review</strong> — a second AI call double-checks: "are these really asking the same thing?" Prevents wrong cached answers. Precision: ≥ 95%.</span>
+          </div>
+        </div>
+
+        <div class="fork">
+          <div class="fork-card hit">
+            <div class="fork-head">✓ Cache hit</div>
+            <p>The answer is already stored. Sway returns it to your app in milliseconds. <strong>No API call made. Zero tokens spent.</strong> Jump to Step 5.</p>
+          </div>
+          <div class="fork-card miss">
+            <div class="fork-head">✗ Cache miss</div>
+            <p>No matching answer found. Continue to Step 3 — Sway needs to ask an AI model for a fresh answer.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step s3">
+      <div class="step-left">
+        <div class="step-num">3</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-header">
+          <div class="step-title">Sway picks the right model for the job</div>
+          <span class="tag amber">Layer 2 · Router</span>
+        </div>
+        <p class="step-subtitle">Not every question needs the most powerful (and expensive) AI. Sway scores the complexity of your request and picks accordingly. You opt in by using <code>model: "sway:auto"</code> — explicit model choices are always respected.</p>
+
+        <div class="model-grid">
+          <div class="model-card nano">
+            <div class="model-label">Nano tier · simple tasks</div>
+            <div class="model-name">gpt-4o-mini · claude-haiku · gemini-flash</div>
+            <div class="model-desc">Short Q&amp;A, quick explanations, simple lookups. ~10× cheaper than flagship.</div>
+          </div>
+          <div class="model-card flag">
+            <div class="model-label">Flagship tier · complex tasks</div>
+            <div class="model-name">gpt-4o · claude-opus · gemini-pro</div>
+            <div class="model-desc">Multi-step code, architecture, large refactors. Used only when genuinely needed.</div>
+          </div>
+        </div>
+
+        <p class="step-subtitle" style="margin-top: 12px;">Signals Sway looks for: token count, presence of code blocks, keywords like "refactor", "architect", "debug multi-file", or "write a poem".</p>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="step s4">
+      <div class="step-left">
+        <div class="step-num">4</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-header">
+          <div class="step-title">The request goes to the AI provider</div>
+          <span class="tag blue">Upstream API</span>
+        </div>
+        <p class="step-subtitle">The optimised prompt is forwarded to the chosen model — OpenAI, Anthropic, or Google. Sway streams the response back to your app in real time, so there's <strong>no extra waiting</strong> compared to a direct API call.</p>
+        <p class="step-subtitle">Behind the scenes Sway also logs the request: tokens in, tokens out, latency, which model ran, cache hit or miss. This is what powers the live dashboard.</p>
+
+        <div style="background: var(--grey); border-radius: 8px; padding: 12px 16px; font-size: 12px; margin-top: 12px; display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--muted);">Model used</span>
+            <span style="font-weight: 600;">gpt-4o-mini</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--muted);">Raw tokens sent</span>
+            <span style="font-weight: 600;">312</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--muted);">Optimised tokens sent</span>
+            <span style="font-weight: 600; color: var(--green);">198 (↓ 36%)</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--muted);">Latency</span>
+            <span style="font-weight: 600;">284 ms</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--muted);">Stored in cache?</span>
+            <span style="font-weight: 600; color: var(--green);">Yes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="step s5">
+      <div class="step-left">
+        <div class="step-num">5</div>
+      </div>
+      <div class="step-body">
+        <div class="step-header">
+          <div class="step-title">Your app gets the answer</div>
+          <span class="tag green">Done</span>
+        </div>
+        <p class="step-subtitle">The response streams back to your IDE or app exactly as if it came from OpenAI directly. From your app's perspective, nothing changed. No new SDK, no new API, no new configuration — just a different base URL.</p>
+        <p class="step-subtitle">And the next time anyone on your team asks a similar question, Sway returns the answer in <strong>milliseconds from cache</strong> — no API call, no cost, no wait.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Savings callout -->
+  <div class="savings">
+    <h2>What Sway saves you — end to end</h2>
+    <p class="sub">Benchmarked on 500 queries · 50 intents × 10 paraphrases each</p>
+    <div class="savings-item">
+      <div class="s-num">≥ 40%</div>
+      <div class="s-lbl">Total token cost reduction<br>vs direct OpenAI</div>
+    </div>
+    <div class="savings-item">
+      <div class="s-num">≥ 70%</div>
+      <div class="s-lbl">Cache hit-rate with<br>optimizer enabled</div>
+    </div>
+    <div class="savings-item">
+      <div class="s-num">&lt; 0.3 pts</div>
+      <div class="s-lbl">Quality difference<br>on a 1–5 scale</div>
+    </div>
+  </div>
+
+  <p class="footnote">
+    Sway · <span>npx sway start</span> · All processing is local · BYOK — bring your own API keys
+  </p>
+
+</div>
+</body>
+</html>
