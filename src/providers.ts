@@ -25,9 +25,27 @@ export interface CompleteResult {
   cacheCreationTokens: number;
 }
 
+const KEY_HELP: Record<string, string> = {
+  GEMINI_API_KEY: "https://aistudio.google.com/apikey",
+  OPENAI_API_KEY: "https://platform.openai.com/api-keys",
+  ANTHROPIC_API_KEY: "https://console.anthropic.com/settings/keys",
+  AWS_BEARER_TOKEN_BEDROCK: "the Bedrock console (API keys), plus AWS_REGION",
+};
+
+/** An error that tells a new user exactly where to get the key and where to put it. */
+export function missingKey(name: string, why?: string): Error {
+  return new Error(
+    `${name} is not set${why ? ` — ${why}` : ""}.\n` +
+    `  Get a key at ${KEY_HELP[name] ?? "your provider's console"}, then either\n` +
+    `  - add a line ${name}=<your key> to a .env file in this folder, or\n` +
+    `  - export ${name}=<your key> in your shell.\n` +
+    `  Sway uses whichever provider you have a key for (Gemini, OpenAI, Anthropic or Bedrock); run \`sway probe\` to check your setup.`,
+  );
+}
+
 export async function complete(args: CompleteArgs): Promise<CompleteResult> {
   const meta = PRICING[args.model];
-  if (!meta) throw new Error(`Unknown model: ${args.model}. Add it to src/pricing.ts.`);
+  if (!meta) throw new Error(`Unknown model: ${args.model}. Run \`sway models\` to see the options.`);
 
   switch (meta.provider) {
     case "anthropic": return anthropicComplete(args);
@@ -39,7 +57,7 @@ export async function complete(args: CompleteArgs): Promise<CompleteResult> {
 
 async function bedrockComplete(args: CompleteArgs): Promise<CompleteResult> {
   const key = process.env.AWS_BEARER_TOKEN_BEDROCK;
-  if (!key) throw new Error("AWS_BEARER_TOKEN_BEDROCK not set (Bedrock long-term API key)");
+  if (!key) throw missingKey("AWS_BEARER_TOKEN_BEDROCK");
   const region = process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? "us-east-1";
 
   const system = args.messages.filter(m => m.role === "system").map(m => m.content).join("\n\n");
@@ -89,7 +107,7 @@ async function bedrockComplete(args: CompleteArgs): Promise<CompleteResult> {
 
 async function anthropicComplete(args: CompleteArgs): Promise<CompleteResult> {
   const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) throw new Error("ANTHROPIC_API_KEY not set");
+  if (!key) throw missingKey("ANTHROPIC_API_KEY");
   const client = new Anthropic({ apiKey: key });
 
   const system = args.messages.filter(m => m.role === "system").map(m => m.content).join("\n\n");
@@ -126,7 +144,7 @@ async function anthropicComplete(args: CompleteArgs): Promise<CompleteResult> {
 
 async function openaiComplete(args: CompleteArgs): Promise<CompleteResult> {
   const key = process.env.OPENAI_API_KEY;
-  if (!key) throw new Error("OPENAI_API_KEY not set");
+  if (!key) throw missingKey("OPENAI_API_KEY");
   const client = new OpenAI({ apiKey: key });
 
   const res = await client.chat.completions.create({
@@ -149,7 +167,7 @@ async function openaiComplete(args: CompleteArgs): Promise<CompleteResult> {
 
 async function geminiComplete(args: CompleteArgs): Promise<CompleteResult> {
   const key = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
-  if (!key) throw new Error("GEMINI_API_KEY not set");
+  if (!key) throw missingKey("GEMINI_API_KEY");
   const genai = new GoogleGenerativeAI(key);
 
   const system = args.messages.filter(m => m.role === "system").map(m => m.content).join("\n\n");
@@ -226,7 +244,7 @@ async function geminiComplete(args: CompleteArgs): Promise<CompleteResult> {
  */
 export async function stream(args: CompleteArgs, onToken: (t: string) => void): Promise<CompleteResult> {
   const meta = PRICING[args.model];
-  if (!meta) throw new Error(`Unknown model: ${args.model}. Add it to src/pricing.ts.`);
+  if (!meta) throw new Error(`Unknown model: ${args.model}. Run \`sway models\` to see the options.`);
   switch (meta.provider) {
     case "gemini": return geminiStream(args, onToken);
     case "openai": return openaiStream(args, onToken);
@@ -241,7 +259,7 @@ export async function stream(args: CompleteArgs, onToken: (t: string) => void): 
 
 async function geminiStream(args: CompleteArgs, onToken: (t: string) => void): Promise<CompleteResult> {
   const key = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
-  if (!key) throw new Error("GEMINI_API_KEY not set");
+  if (!key) throw missingKey("GEMINI_API_KEY");
   const genai = new GoogleGenerativeAI(key);
   const system = args.messages.filter(m => m.role === "system").map(m => m.content).join("\n\n");
   const model = genai.getGenerativeModel({ model: args.model, systemInstruction: system || undefined });
@@ -281,7 +299,7 @@ async function geminiStream(args: CompleteArgs, onToken: (t: string) => void): P
 
 async function openaiStream(args: CompleteArgs, onToken: (t: string) => void): Promise<CompleteResult> {
   const key = process.env.OPENAI_API_KEY;
-  if (!key) throw new Error("OPENAI_API_KEY not set");
+  if (!key) throw missingKey("OPENAI_API_KEY");
   const client = new OpenAI({ apiKey: key });
   const s = await client.chat.completions.create({
     model: args.model,
@@ -302,7 +320,7 @@ async function openaiStream(args: CompleteArgs, onToken: (t: string) => void): P
 
 async function anthropicStream(args: CompleteArgs, onToken: (t: string) => void): Promise<CompleteResult> {
   const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) throw new Error("ANTHROPIC_API_KEY not set");
+  if (!key) throw missingKey("ANTHROPIC_API_KEY");
   const client = new Anthropic({ apiKey: key });
   const system = args.messages.filter(m => m.role === "system").map(m => m.content).join("\n\n");
   const conv = args.messages.filter(m => m.role !== "system").map(m => ({

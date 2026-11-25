@@ -10,7 +10,8 @@ import { splitSections, compressHistory } from "../src/context.js";
 import { parseJudgement } from "../src/judge.js";
 import { weakAnswer } from "../src/pipeline.js";
 import { contentText, sseChunk } from "../src/proxy.js";
-import { summarizeRows } from "../src/eval.js";
+import { summarizeRows, spread } from "../src/eval.js";
+import { buildPrompt } from "../src/optimizer.js";
 
 test("cosine similarity", () => {
   assert.equal(cosine(Float32Array.from([1, 0]), Float32Array.from([1, 0])), 1);
@@ -119,4 +120,19 @@ test("eval summary aggregates per config", () => {
   assert.equal(s.quality, 7);
   assert.ok(Math.abs(s.cost - 0.4) < 1e-9);
   assert.equal(s.nanoShare, 1);
+});
+
+test("eval -n spreads a sorted dataset across categories", () => {
+  const items = ["e1", "e2", "e3", "e4", "m1", "m2", "h1", "h2"].map(id => ({ id, category: id[0] }));
+  assert.deepEqual(spread(items, 5).map(i => i.id), ["e1", "m1", "h1", "e2", "m2"]);
+  assert.equal(spread(items, 99).length, 8);
+});
+
+test("optimizer keeps pasted code and long messages verbatim", () => {
+  const short = buildPrompt("qa", "What is a tuple?", "what is a tuple");
+  assert.ok(!short.includes("full message"));
+  const code = "why does this fail\n```js\nconst x = 1; x = 2;\n```";
+  const withCode = buildPrompt("code", "Explain the const reassignment error.", code);
+  assert.ok(withCode.includes("const x = 1; x = 2;"));
+  assert.ok(buildPrompt("other", "t", "a".repeat(301)).endsWith("a".repeat(301)));
 });

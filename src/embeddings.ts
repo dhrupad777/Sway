@@ -4,6 +4,7 @@
 import { createHash } from "node:crypto";
 import { db } from "./metrics.js";
 import { DEFAULTS } from "./pricing.js";
+import { missingKey } from "./providers.js";
 
 export const EMBED_DIM = 768;
 
@@ -45,7 +46,7 @@ function hashText(t: string): string {
 
 async function callGemini(texts: string[], model: string): Promise<Float32Array[]> {
   const key = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
-  if (!key) throw new Error("GEMINI_API_KEY not set (needed for embeddings)");
+  if (!key) throw missingKey("GEMINI_API_KEY", "embeddings (semantic cache, learned router, context retrieval, cache-eval) use Gemini");
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents?key=${key}`;
   const res = await fetch(url, {
     method: "POST",

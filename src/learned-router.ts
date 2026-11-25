@@ -230,7 +230,7 @@ function pickThreshold(items: Item[], probs: number[], tol: number): number {
 export async function trainRouter(opts: { runId?: string; tolerance: number }): Promise<void> {
   const runId = opts.runId ?? latestLabelRun();
   if (!runId) {
-    console.error("No eval run with both `nano` and `flagship` configs. Run:\n  sway eval evals/cs101_eval.json --configs flagship,nano,sway-rules");
+    console.error("No eval run with both `nano` and `flagship` configs. Run:\n  sway eval --configs flagship,nano,sway-v01");
     process.exit(1);
   }
   const items = itemsFromRun(evalRows(runId));
@@ -239,6 +239,20 @@ export async function trainRouter(opts: { runId?: string; tolerance: number }): 
     process.exit(1);
   }
   const y = items.map(i => i.label);
+  // With (almost) one class there is nothing to learn; a model trained on it would look perfect
+  // in cross-validation and then route every prompt the same way. Refuse instead of saving it.
+  const pos = y.filter(v => v).length, neg = y.length - pos;
+  if (pos < 2 || neg < 2) {
+    console.error(
+      `Run ${runId}: ${pos} of ${y.length} prompts needed the flagship and ${neg} did not. The router needs at least 2 of each to learn from.\n` +
+      (pos < 2
+        ? "The cheap model did as well as the flagship on almost everything, so there is nothing to learn yet. Evaluate more (and harder) prompts:\n"
+        : "The cheap model fell short on almost everything. Evaluate more prompts:\n") +
+      "  sway eval --configs flagship,nano,sway-v01        (all items; -n 20 or more also works)\n" +
+      "No router was saved; Sway keeps using the rules router.",
+    );
+    process.exit(1);
+  }
   const prompts = items.map(i => i.prompt);
   console.log(`Training on run ${runId}: ${items.length} items, ${y.filter(v => v).length} labelled "needs flagship".`);
   console.log(`Quality tolerance: within ${opts.tolerance} points of all-flagship.\n`);

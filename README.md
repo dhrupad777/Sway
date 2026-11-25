@@ -31,30 +31,34 @@ npm i -g sway-llm
 npx sway-llm <command>
 ```
 
-You need keys for at least one provider. Sway supports four:
+You need an API key for one provider. Sway uses whichever one you set:
 
-- **Gemini (default)** — `GEMINI_API_KEY` (or `GOOGLE_API_KEY`). The default
-  config uses it for every role, including embeddings for the semantic cache.
-- **Amazon Bedrock** — long-term API key (bearer token) via
-  `AWS_BEARER_TOKEN_BEDROCK` + `AWS_REGION` (default `us-east-1`). Uses Claude
-  models on Bedrock; ideal if you have AWS credits.
-- **Anthropic direct** — `ANTHROPIC_API_KEY`
-- **OpenAI** — `OPENAI_API_KEY`
+| Provider | Key | Flagship / cheap model |
+|---|---|---|
+| **Gemini** (recommended) | `GEMINI_API_KEY` ([get one](https://aistudio.google.com/apikey)) | gemini-2.5-pro / gemini-2.5-flash |
+| OpenAI | `OPENAI_API_KEY` | gpt-4o / gpt-4o-mini |
+| Anthropic | `ANTHROPIC_API_KEY` | claude-sonnet-4-6 / claude-haiku-4-5 |
+| Amazon Bedrock | `AWS_BEARER_TOKEN_BEDROCK` + `AWS_REGION` | Claude Sonnet 4.5 / Haiku 4.5 (EU inference profiles) |
 
-You can either export these in your shell, **or** drop a `.env` file in the
-project root with `KEY=VALUE` lines (one per env var). Sway reads `.env`
-automatically on every command. Shell-set env vars take precedence over
-`.env` if both are present. `.env` is gitignored by default.
+Put the key in a `.env` file in the folder you run Sway from (`GEMINI_API_KEY=...`),
+or export it in your shell (the shell wins if both are set). Then check the setup:
 
-The default config (see `src/pricing.ts` → `DEFAULTS`) uses Gemini 2.5 Pro as
-flagship, 2.5 Flash as nano and 2.5 Flash-Lite as optimizer. Switch to a different provider by
-overriding `DEFAULTS.flagship`/`nano`/`optimizer` to any model in the `PRICING`
-table.
+```bash
+sway probe      # shows the active provider and sends one tiny request to each model
+```
+
+If several keys are set, Gemini is picked first. Override with `SWAY_PROVIDER=openai`
+(or `gemini`, `anthropic`, `bedrock`), or set single roles with `SWAY_FLAGSHIP`,
+`SWAY_NANO`, `SWAY_OPTIMIZER` and `SWAY_JUDGE` to any model from `sway models`.
+
+**Embeddings always use Gemini.** With another provider and no Gemini key, Sway still
+works, but the semantic cache, context retrieval and learned router switch themselves off.
 
 ## Quick start
 
 ```bash
 sway init                                     # creates a starter sway.md
+sway probe                                    # check your key and models
 sway ask "what is the capital of France?"     # runs through all 3 mechanisms
 sway ask --no-optimize "..."                  # ablate mechanism 2
 sway ask --no-route "..."                     # ablate mechanism 3

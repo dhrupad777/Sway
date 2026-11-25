@@ -133,7 +133,7 @@ async function handleChat(req: IncomingMessage, res: ServerResponse, o: ProxyOpt
     log(project, requested, r.model, r.costUsd, r.cacheHit, r.latencyMs, r.overheadMs, compressed.compressed);
     return sendJson(res, 200, {
       id, object: "chat.completion", created: Math.floor(Date.now() / 1000), model: r.model,
-      choices: [{ index: 0, message: { role: "assistant", content: r.text }, finish_reason: "stop" }],
+      choices: [{ index: 0, message: { role: "assistant", content: r.text }, finish_reason: r.truncated ? "length" : "stop" }],
       usage: { prompt_tokens: r.inputTokens, completion_tokens: r.outputTokens, total_tokens: r.inputTokens + r.outputTokens },
       sway: { cost_usd: r.costUsd, tier: r.tier, cache_hit: r.cacheHit, escalated: r.escalated, overhead_ms: r.overheadMs, history_compressed: compressed.compressed },
     }, {
@@ -154,7 +154,7 @@ async function handleChat(req: IncomingMessage, res: ServerResponse, o: ProxyOpt
   res.write(sseChunk(id, requested, { role: "assistant" }, null));
   try {
     const r = await runPipeline(prompt, { ...opts, onToken: t => res.write(sseChunk(id, requested, { content: t }, null)) });
-    res.write(sseChunk(id, r.model, {}, "stop", {
+    res.write(sseChunk(id, r.model, {}, r.truncated ? "length" : "stop", {
       usage: { prompt_tokens: r.inputTokens, completion_tokens: r.outputTokens, total_tokens: r.inputTokens + r.outputTokens },
       sway: { cost_usd: r.costUsd, tier: r.tier, cache_hit: r.cacheHit, overhead_ms: r.overheadMs },
     }));

@@ -1302,9 +1302,10 @@ const r = await client.chat.completions.create(
       out.push(li('on', 'Router', 'p(needs flagship) = <b>' + s.routeProb.toFixed(2) + '</b> ' + (s.tier === 'nano' ? '&lt;' : '≥') +
         ' threshold ' + (CFG && CFG.router ? CFG.router.threshold : '') + ' → <b>' + s.tier + '</b>'));
     } else {
-      const fb = s.routeSignals.some(x => x.indexOf('no model trained') === 0);
-      const sig = s.routeSignals.filter(x => x.indexOf('no model trained') !== 0 && x.indexOf('escalated:') !== 0).slice(0, 3);
-      out.push(li(fb ? 'warn' : 'on', 'Router', (fb ? 'no trained model, so rules were used' : 'rules') + ' → <b>' + s.tier + '</b>' +
+      const isFb = x => x.indexOf(': rules fallback') > 0;
+      const fb = s.routeSignals.find(isFb);
+      const sig = s.routeSignals.filter(x => !isFb(x) && x.indexOf('escalated:') !== 0).slice(0, 3);
+      out.push(li(fb ? 'warn' : 'on', 'Router', (fb ? (fb.indexOf('no model trained') === 0 ? 'no trained model' : 'learned router unavailable') + ', so rules were used' : 'rules') + ' → <b>' + s.tier + '</b>' +
         (sig.length ? ' · ' + escape(sig.join(', ')) : '')));
     }
     // 4. Semantic cache

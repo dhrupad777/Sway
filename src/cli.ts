@@ -4,7 +4,7 @@ loadEnv();
 import { Command } from "commander";
 import { writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { PRICING } from "./pricing.js";
+import { PRICING, DEFAULTS } from "./pricing.js";
 import { STARTER_SWAY_MD } from "./context.js";
 import { recent, summary } from "./metrics.js";
 import { runPipeline } from "./pipeline.js";
@@ -14,7 +14,7 @@ import { trainRouter } from "./learned-router.js";
 import { cacheEval, semClear } from "./semcache.js";
 import { startProxy } from "./proxy.js";
 import { bench } from "./bench.js";
-import { probe } from "./probe.js";
+import { probe, checkSetup } from "./probe.js";
 import { compare, listSessions } from "./compare.js";
 import { serve } from "./server.js";
 
@@ -22,7 +22,10 @@ const program = new Command();
 
 program
   .name("sway")
-  .description("Cut LLM costs from your terminal: context.md + structured prompts + smart routing")
+  .description(
+    "Cost-aware LLM gateway: context, prompt optimizer, learned router, semantic cache and escalation,\n" +
+    "with an eval harness to check quality holds. Start with `sway init`, `sway probe` and `sway ask \"...\"`.",
+  )
   .version("0.2.0");
 
 interface AskOpts {
@@ -81,6 +84,9 @@ async function runAsk(prompt: string, opts: AskOpts): Promise<void> {
     process.stderr.write(
       `\n\x1b[2m[sway] model=${r.model} in=${r.inputTokens} out=${r.outputTokens} cost=$${r.costUsd.toFixed(6)} ${r.latencyMs}ms${ctxNote}${routeNote}${optNote}${cacheNote}${escNote}\x1b[0m\n`
     );
+    if (r.truncated) {
+      process.stderr.write(`\x1b[33m[sway] The answer was cut off at the ${opts.maxTokens}-token limit. Rerun with --max-tokens ${parseInt(opts.maxTokens, 10) * 2} for the rest.\x1b[0m\n`);
+    }
 }
 
 program
@@ -147,9 +153,13 @@ program
   .command("models")
   .description("List known models and prices")
   .action(() => {
+    const roles = (m: string) => (["flagship", "nano", "optimizer", "judge"] as const).filter(r => DEFAULTS[r] === m);
     for (const [name, p] of Object.entries(PRICING)) {
-      console.log(`${name.padEnd(24)} ${p.tier.padEnd(9)} in=$${p.input}/M  out=$${p.output}/M  (${p.provider})`);
+      const r = roles(name);
+      console.log(`${r.length ? "*" : " "} ${name.padEnd(46)} ${p.tier.padEnd(9)} in=$${p.input}/M  out=$${p.output}/M  (${p.provider})${r.length ? "  <- " + r.join(", ") : ""}`);
     }
+    console.log(`\nActive provider: ${DEFAULTS.provider}${process.env.SWAY_PROVIDER ? " (SWAY_PROVIDER)" : " (picked from the API key you have set)"}.`);
+    console.log("Override with SWAY_PROVIDER=gemini|openai|anthropic|bedrock, or per role with SWAY_FLAGSHIP, SWAY_NANO, SWAY_OPTIMIZER, SWAY_JUDGE.");
   });
 
 program
@@ -162,9 +172,10 @@ program
 
 program
   .command("probe")
-  .description("Probe Bedrock with several candidate model IDs to find which work for your account")
-  .action(async () => {
-    await probe();
+  .description("Check your setup: which provider and models are active, and whether each one answers (costs < $0.001)")
+  .option("--bedrock", "scan candidate Bedrock model IDs to find which ones your account can use")
+  .action(async (opts: { bedrock?: boolean }) => {
+    await (opts.bedrock ? probe() : checkSetup());
   });
 
 program
@@ -185,7 +196,7 @@ program
 
 program
   .command("serve")
-  .description("Launch a local dashboard at http://localhost:8787 to compare bench sessions visually")
+  .description("Open the dashboard at http://localhost:8787 (live raw-vs-Sway, evaluation results, gateway traffic)")
   .option("-p, --port <n>", "port", "8787")
   .action((opts: { port: string }) => {
     serve(parseInt(opts.port, 10));
@@ -198,14 +209,16 @@ program
   .description("Phase 1: run a dataset through several configs and grade every answer with an LLM judge")
   .argument("[dataset]", "path to eval dataset JSON", "evals/cs101_eval.json")
   .option("-c, --configs <list>", `comma-separated configs: ${Object.keys(CONFIGS).join(",")}`, "flagship,nano,sway-v01")
-  .option("-n, --limit <n>", "only the first n items (quick smoke test)")
+  .option("-n, --limit <n>", "only n items, mixed across categories (quick smoke test)")
   .option("-j, --concurrency <n>", "items evaluated in parallel", "4")
   .option("--judge <model>", "judge model (default: flagship)")
   .option("--show <runId>", "re-print the results of an earlier run")
   .option("--list", "list recent eval runs")
   .action(async (dataset: string, opts: { configs: string; limit?: string; concurrency: string; judge?: string; show?: string; list?: boolean }) => {
     if (opts.list) {
-      for (const r of evalRuns(20)) console.log(`${r.run_id}  ${new Date(r.ts).toISOString().slice(0, 16)}  ${r.dataset}  rows=${r.n}  configs=${r.configs}`);
+      const runs = evalRuns(20);
+      if (!runs.length) console.log("No eval runs yet. Start with: sway eval -n 10   (or without -n for all 40 items)");
+      for (const r of runs) console.log(`${r.run_id}  ${new Date(r.ts).toISOString().slice(0, 16)}  ${r.dataset}  rows=${r.n}  configs=${r.configs}`);
       return;
     }
     if (opts.show) return showEval(opts.show);
@@ -297,7 +310,7 @@ also explain what im doing wrong like im a junior dev`;
       optimize: true,
       route: true,
       context: true,
-      maxTokens: "1024",
+      maxTokens: "4096",
       verbose: true,
     });
   });

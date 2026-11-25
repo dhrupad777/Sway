@@ -54,6 +54,16 @@ function extractJson(s: string): { intent: Intent; task: string } | null {
   } catch { return null; }
 }
 
+/**
+ * The one-sentence restatement is enough for a short question, but it cannot carry pasted
+ * code, error messages or data. Whenever the raw prompt has any of that, keep it verbatim.
+ */
+export function buildPrompt(intent: Intent, task: string, rawPrompt: string): string {
+  const prompt = TEMPLATES[intent].replace("{task}", task);
+  const hasDetail = rawPrompt.includes("```") || rawPrompt.trim().includes("\n") || rawPrompt.length > 300;
+  return hasDetail ? `${prompt}\n\nThe user's full message (use every detail in it):\n${rawPrompt}` : prompt;
+}
+
 export async function optimize(rawPrompt: string): Promise<Optimized> {
   const t0 = Date.now();
   try {
@@ -78,10 +88,9 @@ export async function optimize(rawPrompt: string): Promise<Optimized> {
         fallback: true,
       };
     }
-    const tmpl = TEMPLATES[parsed.intent].replace("{task}", parsed.task);
     return {
       intent: parsed.intent,
-      optimizedPrompt: tmpl,
+      optimizedPrompt: buildPrompt(parsed.intent, parsed.task, rawPrompt),
       optimizerInputTokens: res.inputTokens,
       optimizerOutputTokens: res.outputTokens,
       optimizerMs: Date.now() - t0,

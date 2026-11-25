@@ -56,6 +56,8 @@ export interface PipelineResult {
   cacheSimilarity: number | null;
   escalated: boolean;
   escalationReason: string | null;
+  /** The final answer stopped at the output-token cap. */
+  truncated: boolean;
   intent: string | null;
   optimizedPrompt: string | null;
   routeSignals: string[];
@@ -120,9 +122,15 @@ export async function runPipeline(prompt: string, o: PipelineOptions): Promise<P
     const d = classify(finalPrompt);
     model = d.model; tier = d.tier; signals = d.signals;
   } else if (o.router === "learned") {
-    const d = await timed(() => routeLearned(prompt));
-    model = d.model; tier = d.tier; signals = d.learned ? d.signals : ["no model trained: rules fallback", ...d.signals];
-    prob = d.learned ? d.prob : null;
+    try {
+      const d = await timed(() => routeLearned(prompt));
+      model = d.model; tier = d.tier; signals = d.learned ? d.signals : ["no model trained: rules fallback", ...d.signals];
+      prob = d.learned ? d.prob : null;
+    } catch {
+      // e.g. the router uses embeddings and there is no Gemini key: route by rules instead of failing.
+      const d = classify(finalPrompt);
+      model = d.model; tier = d.tier; signals = ["learned router unavailable: rules fallback", ...d.signals];
+    }
   } else {
     model = DEFAULTS.flagship; tier = "flagship";
   }
@@ -134,14 +142,14 @@ export async function runPipeline(prompt: string, o: PipelineOptions): Promise<P
 
   const finish = (r: {
     text: string; model: string; provider: string; inTok: number; outTok: number; cost: number;
-    cacheHit: boolean; sim: number | null; escalated: boolean; escReason: string | null;
+    cacheHit: boolean; sim: number | null; escalated: boolean; escReason: string | null; truncated?: boolean;
   }): PipelineResult => {
     const latencyMs = Date.now() - t0;
     const result: PipelineResult = {
       text: r.text, model: r.model, provider: r.provider, tier,
       inputTokens: r.inTok, outputTokens: r.outTok, costUsd: r.cost,
       latencyMs, overheadMs: Math.max(0, latencyMs - externalMs),
-      cacheHit: r.cacheHit, cacheSimilarity: r.sim,
+      cacheHit: r.cacheHit, cacheSimilarity: r.sim, truncated: !!r.truncated,
       escalated: r.escalated, escalationReason: r.escReason,
       intent, optimizedPrompt, routeSignals: signals, routeProb: prob,
       contextHash: ctx?.hash ?? null, contextTokensFull: ctxFull, contextTokensSent: ctxSent, contextDropped: dropped,
@@ -196,14 +204,17 @@ export async function runPipeline(prompt: string, o: PipelineOptions): Promise<P
     if (escReason) {
       extraCost += costUsd(res.model, res.inputTokens, res.outputTokens);
       extraIn += res.inputTokens; extraOut += res.outputTokens;
-      res = await timed(() => complete({ ...args, model: DEFAULTS.flagship }));
+      // Retrying with the same cap would just truncate again; give the flagship the raw baseline's room.
+      res = await timed(() => complete({ ...args, model: DEFAULTS.flagship, maxTokens: Math.max(maxTokens, 4096) }));
       escalated = true;
       signals = [...signals, `escalated:${escReason}`];
     }
   }
 
   const cost = costUsd(res.model, res.inputTokens, res.outputTokens, { cacheReadTokens: res.cacheReadTokens }) + extraCost;
-  if (useCache && vec && res.text.trim()) {
+  // Never cache an empty, cut-off or hedging answer: a hit would replay it for the whole TTL.
+  const weak = weakAnswer(res, escalated ? Math.max(maxTokens, 4096) : maxTokens);
+  if (useCache && vec && !weak) {
     semStore(vec, scope, ctx?.hash ?? null, {
       prompt, response: res.text, model: res.model, provider: res.provider,
       inputTokens: res.inputTokens, outputTokens: res.outputTokens,
@@ -212,6 +223,6 @@ export async function runPipeline(prompt: string, o: PipelineOptions): Promise<P
   return finish({
     text: res.text, model: res.model, provider: res.provider,
     inTok: res.inputTokens + extraIn, outTok: res.outputTokens + extraOut, cost,
-    cacheHit: false, sim: bestSim, escalated, escReason,
+    cacheHit: false, sim: bestSim, escalated, escReason, truncated: weak === "truncated",
   });
 }

@@ -24,6 +24,26 @@ interface Dataset {
 
 type ConfigOpts = Omit<PipelineOptions, "session" | "onToken">;
 
+/**
+ * n items taken round-robin across categories, so `-n 10` on a dataset sorted easy → hard
+ * still mixes difficulties (otherwise a smoke test only ever sees the easiest prompts).
+ */
+export function spread<T extends { category?: string }>(items: T[], n: number): T[] {
+  if (n >= items.length) return items;
+  const groups = new Map<string, T[]>();
+  for (const it of items) {
+    const k = it.category ?? "";
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k)!.push(it);
+  }
+  const queues = [...groups.values()];
+  const out: T[] = [];
+  for (let i = 0; out.length < n; i++) {
+    for (const q of queues) if (i < q.length && out.length < n) out.push(q[i]);
+  }
+  return out;
+}
+
 /** A dataset path missing from the cwd falls back to the copy shipped in the package (evals/, workloads/). */
 export function bundled(p: string): string {
   if (existsSync(p)) return p;
@@ -75,7 +95,7 @@ export async function runEval(datasetPath: string, opts: { configs: string[]; li
   const ds = JSON.parse(readFileSync(datasetPath, "utf8")) as Dataset;
   const unknown = opts.configs.filter(c => !CONFIGS[c]);
   if (unknown.length) throw new Error(`Unknown config(s): ${unknown.join(", ")}. Known: ${Object.keys(CONFIGS).join(", ")}`);
-  const items = ds.items.slice(0, opts.limit ?? ds.items.length);
+  const items = opts.limit ? spread(ds.items, opts.limit) : ds.items;
   const runId = `eval_${newSessionId().slice(2)}`;
   const judgeModel = opts.judgeModel ?? DEFAULTS.judge;
 

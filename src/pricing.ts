@@ -70,14 +70,67 @@ export function tierFor(model: string): "nano" | "flagship" | "unknown" {
   return PRICING[model]?.tier ?? "unknown";
 }
 
-// Defaults: all-Gemini 2.5 family. Works in India with free tier or UPI billing
-// via Google Cloud. flagship vs nano gives ~10x price spread for routing demo.
+export type Provider = ModelPrice["provider"];
+
+// Model roles per provider: flagship (quality), nano (cheap), optimizer (cheapest; rewrites prompts).
+export const PRESETS: Record<Provider, { flagship: string; nano: string; optimizer: string }> = {
+  gemini:    { flagship: "gemini-2.5-pro", nano: "gemini-2.5-flash", optimizer: "gemini-2.5-flash-lite" },
+  openai:    { flagship: "gpt-4o", nano: "gpt-4o-mini", optimizer: "gpt-4o-mini" },
+  anthropic: { flagship: "claude-sonnet-4-6", nano: "claude-haiku-4-5", optimizer: "claude-haiku-4-5" },
+  bedrock:   {
+    flagship: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    nano: "eu.anthropic.claude-haiku-4-5-20251001-v1:0",
+    optimizer: "eu.anthropic.claude-haiku-4-5-20251001-v1:0",
+  },
+};
+
+export const KEY_VARS: Record<Provider, string[]> = {
+  gemini: ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+  openai: ["OPENAI_API_KEY"],
+  anthropic: ["ANTHROPIC_API_KEY"],
+  bedrock: ["AWS_BEARER_TOKEN_BEDROCK"],
+};
+
+export function hasKey(p: Provider): boolean {
+  return KEY_VARS[p].some(v => !!process.env[v]);
+}
+
+function fail(msg: string): never {
+  console.error(`\x1b[31m[sway] ${msg}\x1b[0m`);
+  process.exit(1);
+}
+
+/** SWAY_PROVIDER if set, otherwise the first provider with an API key (Gemini first), otherwise Gemini. */
+function detectProvider(): Provider {
+  const forced = process.env.SWAY_PROVIDER?.trim().toLowerCase();
+  if (forced) {
+    if (!(forced in PRESETS)) fail(`SWAY_PROVIDER=${forced} is not one of: ${Object.keys(PRESETS).join(", ")}`);
+    return forced as Provider;
+  }
+  return (["gemini", "openai", "anthropic", "bedrock"] as Provider[]).find(hasKey) ?? "gemini";
+}
+
+/** A model from an env override (validated), or the provider preset. */
+function role(envVar: string, fallback: string): string {
+  const v = process.env[envVar]?.trim();
+  if (!v) return fallback;
+  if (!PRICING[v]) fail(`${envVar}=${v} is not a known model. Run \`sway models\` to see the options.`);
+  return v;
+}
+
+const provider = detectProvider();
+const preset = PRESETS[provider];
+const flagship = role("SWAY_FLAGSHIP", preset.flagship);
+
+// Resolved once at startup. Override any role with SWAY_FLAGSHIP / SWAY_NANO / SWAY_OPTIMIZER / SWAY_JUDGE.
 export const DEFAULTS = {
-  nano:      "gemini-2.5-flash",
-  flagship:  "gemini-2.5-pro",
-  optimizer: "gemini-2.5-flash-lite",
-  // v0.2
-  judge:     "gemini-2.5-pro",
+  provider,
+  flagship,
+  nano:      role("SWAY_NANO", preset.nano),
+  optimizer: role("SWAY_OPTIMIZER", preset.optimizer),
+  judge:     role("SWAY_JUDGE", flagship),
+  // Embeddings (semantic cache, learned router, context retrieval) always use Gemini.
+  // Without a Gemini key those features switch themselves off.
   embedding: "gemini-embedding-001",
 };
 
