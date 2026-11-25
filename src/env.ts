@@ -27,3 +27,7 @@ export function loadEnv(): void {
     }
   }
 }
+
+// Run on import: cli.ts imports this module first, so keys from .env are visible
+// before pricing.ts picks default models from whichever key is present.
+loadEnv();

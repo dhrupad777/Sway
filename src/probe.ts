@@ -97,7 +97,7 @@ export async function probe(): Promise<void> {
   console.log(`✗ Other errors:   ${other.length}`);
 
   if (ok.length > 0) {
-    console.log("\n\x1b[32mPaste these into src/pricing.ts as your DEFAULTS.\x1b[0m\n");
+    console.log("\n\x1b[32mWorking IDs. Use them with SWAY_PROVIDER=bedrock and SWAY_FLAGSHIP / SWAY_NANO / SWAY_OPTIMIZER (they must also appear in `sway models`).\x1b[0m\n");
     const sonnets = ok.filter(r => /sonnet/i.test(r.modelId));
     const haikus  = ok.filter(r => /haiku/i.test(r.modelId));
     if (sonnets.length) console.log(`  flagship: "${sonnets[0].modelId}"`);
@@ -109,4 +109,52 @@ export async function probe(): Promise<void> {
   } else {
     console.log("\n\x1b[31mNothing worked.\x1b[0m Check that AWS_BEARER_TOKEN_BEDROCK is valid and AWS_REGION matches the region your key was issued in.");
   }
+}
+
+// ---------- `sway probe`: check the active setup ----------
+
+/** One tiny call per configured model plus one embedding, so a new user sees exactly what works. */
+export async function checkSetup(): Promise<void> {
+  const { DEFAULTS, KEY_VARS, hasKey } = await import("./pricing.js");
+  const { complete } = await import("./providers.js");
+  const { embed } = await import("./embeddings.js");
+  const ok = (s: string) => console.log(`  \x1b[32m✓\x1b[0m ${s}`);
+  const bad = (s: string) => console.log(`  \x1b[31m✗\x1b[0m ${s}`);
+  const firstLine = (e: unknown) => String((e as Error).message ?? e).split("\n")[0].slice(0, 160);
+
+  console.log("API keys found:");
+  for (const [p, vars] of Object.entries(KEY_VARS)) {
+    console.log(`  ${hasKey(p as keyof typeof KEY_VARS) ? "\x1b[32m✓\x1b[0m" : "\x1b[2m·\x1b[0m"} ${p.padEnd(10)} ${vars.join(" or ")}`);
+  }
+  console.log(`\nActive provider: ${DEFAULTS.provider}  (change with SWAY_PROVIDER, see \`sway models\`)\n`);
+
+  let failures = 0;
+  const seen = new Set<string>();
+  for (const role of ["flagship", "nano", "optimizer", "judge"] as const) {
+    const model = DEFAULTS[role];
+    if (seen.has(model)) { ok(`${role.padEnd(9)} ${model} (checked above)`); continue; }
+    seen.add(model);
+    try {
+      const t0 = Date.now();
+      await complete({ model, messages: [{ role: "user", content: "Reply with OK." }], maxTokens: 16, temperature: 0 });
+      ok(`${role.padEnd(9)} ${model}  ${Date.now() - t0}ms`);
+    } catch (e) {
+      failures++;
+      bad(`${role.padEnd(9)} ${model}  ${firstLine(e)}`);
+    }
+  }
+  try {
+    await embed("sway setup check");
+    ok(`embedding ${DEFAULTS.embedding}  (semantic cache, learned router, context retrieval)`);
+  } catch (e) {
+    bad(`embedding ${DEFAULTS.embedding}  ${firstLine(e)}`);
+    console.log("    Without embeddings Sway still works; the semantic cache, context retrieval and learned router switch off.");
+  }
+
+  if (failures) {
+    console.log(`\n\x1b[31m${failures} model(s) failed.\x1b[0m Fix the key above, or pick other models with SWAY_FLAGSHIP / SWAY_NANO / SWAY_OPTIMIZER.`);
+    if (DEFAULTS.provider === "bedrock") console.log("On Bedrock, `sway probe --bedrock` finds which model IDs your account can use.");
+    process.exit(1);
+  }
+  console.log("\n\x1b[32mReady.\x1b[0m Try: sway ask \"what is a closure in javascript\"");
 }

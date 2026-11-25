@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { complete, type Message } from "./providers.js";
-import { costUsd, DEFAULTS } from "./pricing.js";
+import { costUsd, DEFAULTS, TOKEN_BUDGET } from "./pricing.js";
 import { optimize } from "./optimizer.js";
-import { classify } from "./router.js";
 import { loadContext } from "./context.js";
 import { record, newSessionId } from "./metrics.js";
+import { responseCache } from "./cache.js";
 
 interface Workload {
   name: string;
@@ -19,12 +19,11 @@ interface RunStats {
   outputTokens: number;
   cost: number;
   ms: number;
-  routedNano: number;
-  routedFlagship: number;
+  cacheHits: number;
 }
 
 function blank(label: string): RunStats {
-  return { label, count: 0, inputTokens: 0, outputTokens: 0, cost: 0, ms: 0, routedNano: 0, routedFlagship: 0 };
+  return { label, count: 0, inputTokens: 0, outputTokens: 0, cost: 0, ms: 0, cacheHits: 0 };
 }
 
 async function runOne(opts: {
@@ -32,35 +31,84 @@ async function runOne(opts: {
   systemContext: string | null;
   contextHash: string | null;
   useOptimizer: boolean;
-  useRouter: boolean;
-  forceModel: string;
+  tokenBudget: number;
   session: string;
-}): Promise<{ inputTokens: number; outputTokens: number; cost: number; ms: number; tier: "nano" | "flagship" | null }> {
+}): Promise<{ inputTokens: number; outputTokens: number; cost: number; ms: number; cacheHit: boolean }> {
   const t0 = Date.now();
 
   let optimizedPrompt: string | null = null;
-  let optExtraIn = 0, optExtraOut = 0, optMs = 0;
+  let optExtraIn = 0, optExtraOut = 0;
+  let intent = "other";
   if (opts.useOptimizer) {
     const o = await optimize(opts.prompt);
-    optimizedPrompt = o.fallback ? null : o.optimizedPrompt;
+    if (!o.fallback) {
+      optimizedPrompt = o.optimizedPrompt;
+      intent = o.intent;
+    }
     optExtraIn = o.optimizerInputTokens;
     optExtraOut = o.optimizerOutputTokens;
-    optMs = o.optimizerMs;
   }
 
-  const finalUserPrompt = optimizedPrompt ?? opts.prompt;
-  const decision = opts.useRouter ? classify(finalUserPrompt) : null;
-  const model = decision ? decision.model : opts.forceModel;
+  // Apply intent-aware token budget (overrides the caller's default).
+  const effectiveBudget = opts.useOptimizer
+    ? (TOKEN_BUDGET[intent] ?? 1200)
+    : opts.tokenBudget;
 
+  const finalUserPrompt = optimizedPrompt ?? opts.prompt;
+
+  // Check response cache (only active in sway mode via useOptimizer flag)
+  if (opts.useOptimizer) {
+    const cached = responseCache.get(finalUserPrompt);
+    if (cached.hit) {
+      const ms = Date.now() - t0;
+      const optCost = costUsd(DEFAULTS.optimizer, optExtraIn, optExtraOut);
+      record({
+        rawPrompt: opts.prompt,
+        optimizedPrompt,
+        responseText: cached.entry.text,
+        model: cached.entry.model,
+        provider: cached.entry.provider,
+        inputTokens: optExtraIn,
+        outputTokens: optExtraOut,
+        costUsd: optCost,
+        optimized: true,
+        routed: false,
+        routeTier: null,
+        contextHash: opts.contextHash,
+        latencyMs: ms,
+        session: opts.session,
+        cacheHit: true,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+        tokenBudget: null,
+      });
+      return { inputTokens: optExtraIn, outputTokens: optExtraOut, cost: optCost, ms, cacheHit: true };
+    }
+  }
+
+  const systemParts: string[] = [];
+  if (opts.useOptimizer) {
+    systemParts.push("Be concise and specific. Answer exactly what is asked — nothing more. Do not add background context, caveats, disclaimers, or tangential details. If the user wants more depth on any part, they will ask a follow-up.");
+  }
+  if (opts.systemContext) systemParts.push(opts.systemContext);
   const messages: Message[] = [];
-  if (opts.systemContext) messages.push({ role: "system", content: opts.systemContext });
+  if (systemParts.length > 0) messages.push({ role: "system", content: systemParts.join("\n\n") });
   messages.push({ role: "user", content: finalUserPrompt });
 
-  const res = await complete({ model, messages, maxTokens: 2048 });
+  const res = await complete({ model: DEFAULTS.flagship, messages, maxTokens: effectiveBudget });
   const ms = Date.now() - t0;
-  const callCost = costUsd(res.model, res.inputTokens, res.outputTokens);
-  // Optimizer cost (Gemini Flash) — cheap but counted honestly
+  const callCost = costUsd(res.model, res.inputTokens, res.outputTokens, { cacheReadTokens: res.cacheReadTokens });
   const optCost = costUsd(DEFAULTS.optimizer, optExtraIn, optExtraOut);
+
+  if (opts.useOptimizer) {
+    responseCache.set(finalUserPrompt, {
+      text: res.text,
+      inputTokens: res.inputTokens,
+      outputTokens: res.outputTokens,
+      model: res.model,
+      provider: res.provider,
+    });
+  }
 
   record({
     rawPrompt: opts.prompt,
@@ -72,11 +120,15 @@ async function runOne(opts: {
     outputTokens: res.outputTokens + optExtraOut,
     costUsd: callCost + optCost,
     optimized: opts.useOptimizer,
-    routed: opts.useRouter,
-    routeTier: decision?.tier ?? null,
+    routed: false,
+    routeTier: null,
     contextHash: opts.contextHash,
     latencyMs: ms,
     session: opts.session,
+    cacheHit: false,
+    cacheReadTokens: res.cacheReadTokens,
+    cacheCreationTokens: res.cacheCreationTokens,
+    tokenBudget: opts.useOptimizer ? effectiveBudget : null,
   });
 
   return {
@@ -84,25 +136,29 @@ async function runOne(opts: {
     outputTokens: res.outputTokens + optExtraOut,
     cost: callCost + optCost,
     ms,
-    tier: decision?.tier ?? null,
+    cacheHit: false,
   };
 }
 
 async function runWorkload(workload: Workload, mode: "raw" | "sway", session: string): Promise<RunStats> {
   const ctx = mode === "sway" ? loadContext() : null;
-  const stats = blank(mode === "raw" ? "Raw API" : "Sway");
+  const stats = blank(mode === "raw" ? `Raw API  (${DEFAULTS.flagship}, maxTokens=4096)` : `Sway     (${DEFAULTS.flagship}, optimizer + token budget + response cache)`);
 
   let consecutiveErrors = 0;
   let lastError: Error | null = null;
   for (const prompt of workload.prompts) {
     try {
+      // For sway mode we apply token budget after optimization; for raw always 4096.
+      // We pass 4096 here for raw, and let runOne pick the budget for sway.
+      // runOne always calls optimize() when useOptimizer=true, which gives us the intent.
+      // We use TOKEN_BUDGET with a default of 1200 when not sway.
+      const tokenBudget = mode === "sway" ? 1200 : 4096;  // runOne overrides this via optimizer
       const r = await runOne({
         prompt,
         systemContext: ctx?.text ?? null,
         contextHash: ctx?.hash ?? null,
         useOptimizer: mode === "sway",
-        useRouter: mode === "sway",
-        forceModel: DEFAULTS.flagship,
+        tokenBudget,
         session,
       });
       stats.count += 1;
@@ -110,10 +166,9 @@ async function runWorkload(workload: Workload, mode: "raw" | "sway", session: st
       stats.outputTokens += r.outputTokens;
       stats.cost += r.cost;
       stats.ms += r.ms;
-      if (r.tier === "nano") stats.routedNano += 1;
-      else if (r.tier === "flagship") stats.routedFlagship += 1;
+      if (r.cacheHit) stats.cacheHits += 1;
       consecutiveErrors = 0;
-      process.stderr.write(".");
+      process.stderr.write(r.cacheHit ? "C" : ".");
     } catch (e) {
       consecutiveErrors += 1;
       lastError = e as Error;
@@ -144,6 +199,7 @@ function table(raw: RunStats, sway: RunStats): string {
     ["Input tokens", String(raw.inputTokens), String(sway.inputTokens), pct(sway.inputTokens, raw.inputTokens)],
     ["Output tokens", String(raw.outputTokens), String(sway.outputTokens), pct(sway.outputTokens, raw.outputTokens)],
     ["Calls", String(raw.count), String(sway.count), ""],
+    ["Cache hits", "0", String(sway.cacheHits), sway.count > 0 ? `${((sway.cacheHits / sway.count) * 100).toFixed(0)}% hit rate` : ""],
   ];
   const widths = rows[0].map((_, i) => Math.max(...rows.map(r => r[i].length)));
   return rows.map((r, ri) => {
@@ -155,22 +211,27 @@ function table(raw: RunStats, sway: RunStats): string {
 export async function bench(workloadPath: string): Promise<void> {
   const wl = JSON.parse(readFileSync(workloadPath, "utf8")) as Workload;
   console.log(`Workload: ${wl.name} — ${wl.prompts.length} prompts`);
-  console.log(`Note: each prompt is sent twice (raw, then sway). Estimated API calls: ${wl.prompts.length * 2 + wl.prompts.length}`);
+  console.log(`Both runs use ${DEFAULTS.flagship}. Sway savings come from optimizer + token budget + response cache.`);
+  console.log(`Estimated API calls: ${wl.prompts.length * 2} + optimizer calls`);
+  console.log(`Legend: . = API call   C = cache hit (free)`);
   console.log("");
 
   const sessionRaw = newSessionId();
   const sessionSway = newSessionId();
 
-  console.log("[1/2] Running RAW (all flagship, no optimizer, no context)...");
+  console.log("[1/2] Running RAW (flagship model, no optimization, maxTokens=4096)...");
   const raw = await runWorkload(wl, "raw", sessionRaw);
 
-  console.log("[2/2] Running SWAY (context + optimizer + router)...");
+  console.log("[2/2] Running SWAY (same model, optimizer + token budget + response cache)...");
   const sway = await runWorkload(wl, "sway", sessionSway);
 
   console.log("");
   console.log(table(raw, sway));
   console.log("");
-  console.log(`Routing breakdown: nano=${sway.routedNano}/${sway.count} flagship=${sway.routedFlagship}/${sway.count}`);
+  console.log(`Mechanism breakdown:`);
+  console.log(`  Response cache : ${sway.cacheHits}/${sway.count} hits (${sway.count > 0 ? ((sway.cacheHits / sway.count) * 100).toFixed(0) : 0}% — each hit costs $0.00000)`);
+  console.log(`  Token budget   : QA/explain=${TOKEN_BUDGET.qa}, code/refactor=${TOKEN_BUDGET.code}, other=${TOKEN_BUDGET.other} (raw used 4096)`);
+  console.log(`  Provider cache : active for Gemini/Anthropic providers (see cache_read_tokens in DB)`);
   console.log(`\nSession IDs (for \`sway compare\`):`);
   console.log(`  raw:  ${sessionRaw}`);
   console.log(`  sway: ${sessionSway}`);
