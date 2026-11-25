@@ -1,180 +1,286 @@
-# sway-llm
+# Sway — a cost-aware LLM gateway
 
-Cut LLM costs from your terminal. BYOK. One npm install away.
+**Cut your LLM bill. Keep the quality. And prove it.**
 
-Sway wraps your prompts with three compounding cost-reduction mechanisms and
-shows you the savings as a number you can defend.
+Sway sits between your app (or terminal) and the LLM provider. Every prompt goes through a
+six-stage pipeline that sends as little as possible to the most expensive model, and an
+evaluation harness grades the answers so the savings are not bought with worse output.
 
+> **Measured result** (CS-101 eval set, Gemini 2.5, answers graded 1–10 by an LLM judge against reference answers):
+> Sway was **80.1% cheaper** than sending every prompt to the flagship model, at quality **9.33 vs 9.92**.
+> On a second run it was **85.7% cheaper at identical quality (10.0 vs 10.0)**. Details and caveats in [Proof](#proof).
+
+![Live dashboard](docs/screens/1a-live-overview.png)
+
+---
+
+## Contents
+
+- [The problem](#the-problem)
+- [How it works](#how-it-works)
+- [Proof](#proof)
+- [Run it locally](#run-it-locally)
+- [Use it from any app (gateway)](#use-it-from-any-app-gateway)
+- [Reproduce the results](#reproduce-the-results)
+- [Project layout](#project-layout)
+- [Honest caveats](#honest-caveats)
+
+---
+
+## The problem
+
+Most apps send every prompt to one flagship model. That overpays in three ways:
+
+1. **Easy prompts go to the expensive model.** "What is a tuple?" does not need Gemini 2.5 Pro.
+2. **The same question is paid for again and again.** Paraphrases ("explain closures" / "what's a closure?") get a fresh, full-price answer each time.
+3. **Too many tokens go in and out.** Whole context files get pasted into every call, and loose prompts produce long, rambling answers.
+
+Cost tools usually report savings without checking whether the answers got worse. Sway measures both.
+
+---
+
+## How it works
+
+```mermaid
+flowchart LR
+    P[Prompt] --> C[1 Context]
+    C --> O[2 Optimizer]
+    O --> K{4 Semantic cache}
+    K -- hit --> A[Answer]
+    K -- miss --> R[3 Router]
+    R -- nano --> N[5 Cheap model]
+    R -- flagship --> F[5 Flagship model]
+    N --> E{6 Weak answer?}
+    E -- no --> A
+    E -- truncated / hedged --> F
+    F --> A
+    A --> M[(metrics.db)]
 ```
-npx sway-llm ask "explain closures in JavaScript"
-```
 
-## The three mechanisms
+| # | Stage | What it does | Code |
+|---|---|---|---|
+| 1 | **Context** | Loads your project's `sway.md` as a system message. In `retrieve` mode only the sections relevant to this prompt are sent. Long chat histories are summarised by the cheap model. | [`src/context.ts`](src/context.ts) |
+| 2 | **Optimizer** | A very cheap model (Gemini Flash-Lite) labels the intent (`code`, `qa`, `refactor`, `explain`, `other`) and rewrites the prompt into a tight template. Pasted code and long messages are kept verbatim. | [`src/optimizer.ts`](src/optimizer.ts) |
+| 3 | **Router** | Decides **nano** (cheap) or **flagship**. v0.1 used keyword rules; v0.2 uses a **logistic regression** trained on the judge's grades, over hand features + the prompt's embedding. | [`src/router.ts`](src/router.ts), [`src/learned-router.ts`](src/learned-router.ts) |
+| 4 | **Semantic cache** | Embeds the prompt and reuses a stored answer if a previous prompt was similar enough (cosine ≥ threshold) **and** was answered under the same context. The threshold is chosen from labelled near-miss pairs, not guessed. | [`src/semcache.ts`](src/semcache.ts), [`src/embeddings.ts`](src/embeddings.ts) |
+| 5 | **Model call** | Calls the chosen model through one adapter for Gemini, OpenAI, Anthropic or Bedrock. Streaming supported. | [`src/providers.ts`](src/providers.ts) |
+| 6 | **Escalation** | If the cheap answer was cut off (hit ≥98% of its token cap) or hedged ("I'm not sure…"), Sway retries on the flagship. This is the safety net that lets the router be aggressive. | [`src/pipeline.ts`](src/pipeline.ts) |
 
-1. **Context auto-injection** — drop a `sway.md` in your repo. Sway prepends it
-   to every call so you stop pasting the same context inline. The file is
-   hashed; identical context across calls means providers can cache it server-side.
-2. **Structured prompting** — a cheap pre-call (Gemini Flash, ~$0.075/M input)
-   classifies intent and rewrites your raw prompt into a CO-STAR-style template.
-   Tighter prompts → fewer wasted output tokens → cheaper, better answers.
-3. **Model routing** — a rules-based classifier picks `nano` vs `flagship` per
-   request. Trivia goes to Haiku; refactors go to Sonnet. You stop overpaying
-   for simple questions.
+Every call is logged to a local SQLite file (`~/.sway/metrics.db`) with model, tokens, cost, cache hit and escalation, which is what the dashboard and reports read.
 
-Each mechanism is independently togglable so you can ablate (and benchmark) them.
+### How the router learns
 
-## Install
+1. `sway eval` sends each prompt in the dataset to **both** the cheap and the flagship model and the judge grades both answers.
+2. A prompt is labelled **"needs flagship"** when the cheap answer scored below 7, or more than 1 point below the flagship's.
+3. `sway train-router` fits an L2 logistic regression (pure TypeScript, no ML library) with 5-fold cross-validation, compares it with the v0.1 rules, and saves it to `~/.sway/router.json`.
+
+### How the cache threshold is chosen
+
+[`evals/cache_pairs.json`](evals/cache_pairs.json) holds 40 labelled prompt pairs: true paraphrases that **should** share an answer, and near-misses that **must not** ("convert celsius to fahrenheit" vs "convert fahrenheit to celsius"). `sway cache-eval` sweeps thresholds and reports hit rate against false-hit rate.
+
+---
+
+## Proof
+
+All numbers below come from real runs against the Gemini API (flagship `gemini-2.5-pro`, cheap `gemini-2.5-flash`), recorded in the dashboard. Screenshots are unedited.
+
+### 1. Cost vs quality (Evaluation tab)
+
+![Evaluation tab](docs/screens/2-evaluation.png)
+
+**Run `eval_mwvdujvq_7xgel4`** — 12 CS-101 prompts (easy / medium / hard), every answer graded by the judge:
+
+| Config | Quality (1–10) | Δ vs flagship | Cost | Saved | Sent to cheap model |
+|---|---|---|---|---|---|
+| flagship (raw API) | 9.92 | – | $0.1441 | – | 0% |
+| nano (raw API) | 9.00 | −0.92 | $0.0428 | 70.3% | 100% |
+| **sway-v01** | **9.33** | **−0.58** | **$0.0286** | **80.1%** | 92% |
+
+**Run `eval_mwvdi2j1_kgjt81`** — 10 prompts:
+
+| Config | Quality | Δ vs flagship | Cost | Saved |
+|---|---|---|---|---|
+| flagship (raw API) | 10.00 | – | $0.1201 | – |
+| nano (raw API) | 10.00 | 0.00 | $0.0280 | 76.7% |
+| **sway-v01** | **10.00** | **0.00** | **$0.0172** | **85.7%** |
+
+What this shows: Sway is cheaper than even "always use the cheap model", because the optimizer and context also cut output tokens (10.5k vs 14.4k out in run 1), and it keeps quality closer to the flagship than nano alone does.
+
+The dashboard also lists the weakest answers with the judge's reason, so failures are visible rather than averaged away (e.g. one sway-v01 answer scored 4/10 because it was cut off mid-sentence — the case escalation is designed to catch).
+
+### 2. The learned router beats the keyword rules
+
+From `~/.sway/router.json`, trained on run `eval_mwvdujvq_7xgel4` with 5-fold cross-validation:
+
+| Policy | Accuracy | Sent to cheap | Quality | Saved |
+|---|---|---|---|---|
+| All flagship | – | 0% | 9.92 | 0.0% |
+| All cheap | – | 100% | 9.00 | 70.3% |
+| v0.1 keyword rules | 75% | 92% | 9.00 | 66.3% |
+| **Learned (hand + embedding features)** | **83%** | 83% | **9.67** | 58.4% |
+
+The learned router picks the flagship for the prompts that actually need it, recovering most of the quality gap (9.67 vs 9.92) while still saving 58%.
+
+### 3. Semantic cache threshold (from the labelled sweep)
+
+The sweep (right panel of the Evaluation screenshot) shows the trade-off: at **0.97**, false hits stay ≤ 5% while 25% of true paraphrases are reused. The hardest near-misses score 0.93–0.99 similarity, which is why a low threshold is dangerous and why Sway also requires the same context hash before reusing an answer.
+
+### 4. Every stage is traceable (Live tab)
+
+Each Sway answer comes with a per-stage trace. Here the router chose the cheap model, the answer was truncated, and escalation retried it on the flagship:
+
+![Escalation trace](docs/screens/1b-live-trace-escalation.png)
+
+And a debugging prompt routed to the cheap model with a 2048-token cap (raw: 4096):
+
+![Debugging trace](docs/screens/1c-live-trace-debugging.png)
+
+### 5. Side-by-side answers (Sessions tab)
+
+Same prompt, raw API vs Sway, with cost and tokens. "What is a set in Python": raw $0.0186 vs Sway $0.0023 — **87.7% cheaper**, 906 vs 1857 output tokens.
+
+![Sessions tab](docs/screens/4-sessions.png)
+
+### 6. Drop-in gateway (Gateway tab)
+
+Real requests through the OpenAI-compatible proxy, grouped by project. Rows tagged `cache 0.94`–`1.00` were served from the semantic cache at **$0.00000** and ~400 ms instead of ~4 s.
+
+![Gateway tab](docs/screens/3-gateway.png)
+
+### 7. Tests
 
 ```bash
-npm i -g sway-llm
-# or one-shot
-npx sway-llm <command>
+npm test     # 14 unit tests, all passing (no API calls)
 ```
 
-You need an API key for one provider. Sway uses whichever one you set:
+Covers regression training, cosine similarity, the threshold sweep, section splitting, history compression, judge parsing, escalation rules, SSE format and eval aggregation.
+
+---
+
+## Run it locally
+
+Requires **Node.js 20+**.
+
+```bash
+git clone https://github.com/dhrupad777/Sway.git
+cd Sway
+npm install
+npm run build
+```
+
+Add one API key to a `.env` file in the folder you run Sway from (or export it in your shell):
 
 | Provider | Key | Flagship / cheap model |
 |---|---|---|
 | **Gemini** (recommended) | `GEMINI_API_KEY` ([get one](https://aistudio.google.com/apikey)) | gemini-2.5-pro / gemini-2.5-flash |
 | OpenAI | `OPENAI_API_KEY` | gpt-4o / gpt-4o-mini |
 | Anthropic | `ANTHROPIC_API_KEY` | claude-sonnet-4-6 / claude-haiku-4-5 |
-| Amazon Bedrock | `AWS_BEARER_TOKEN_BEDROCK` + `AWS_REGION` | Claude Sonnet 4.5 / Haiku 4.5 (EU inference profiles) |
+| Amazon Bedrock | `AWS_BEARER_TOKEN_BEDROCK` + `AWS_REGION` | Claude Sonnet 4.5 / Haiku 4.5 |
 
-Put the key in a `.env` file in the folder you run Sway from (`GEMINI_API_KEY=...`),
-or export it in your shell (the shell wins if both are set). Then check the setup:
-
-```bash
-sway probe      # shows the active provider and sends one tiny request to each model
-```
-
-If several keys are set, Gemini is picked first. Override with `SWAY_PROVIDER=openai`
-(or `gemini`, `anthropic`, `bedrock`), or set single roles with `SWAY_FLAGSHIP`,
-`SWAY_NANO`, `SWAY_OPTIMIZER` and `SWAY_JUDGE` to any model from `sway models`.
-
-**Embeddings always use Gemini.** With another provider and no Gemini key, Sway still
-works, but the semantic cache, context retrieval and learned router switch themselves off.
-
-## Quick start
+Then:
 
 ```bash
-sway init                                     # creates a starter sway.md
-sway probe                                    # check your key and models
-sway ask "what is the capital of France?"     # runs through all 3 mechanisms
-sway ask --no-optimize "..."                  # ablate mechanism 2
-sway ask --no-route "..."                     # ablate mechanism 3
-sway ask --no-context "..."                   # ablate mechanism 1
-sway ask -m claude-haiku-4-5 "..."            # force a specific model
-sway stats                                    # see recent calls + totals
-sway stats --verbose                          # also show optimized prompts
-sway models                                   # known models + pricing
+node dist/cli.js probe                 # check the key and each model (costs < $0.001)
+node dist/cli.js init                  # create a starter sway.md
+node dist/cli.js ask "what is a tuple" # one prompt through the full pipeline
+node dist/cli.js serve                 # dashboard at http://localhost:8787
 ```
 
-## Benchmark (the demo)
+(After `npm i -g .` or `npm link`, `node dist/cli.js` becomes just `sway`.)
+
+If several keys are set, Gemini is picked first. Override with `SWAY_PROVIDER=openai|gemini|anthropic|bedrock`, or set single roles with `SWAY_FLAGSHIP`, `SWAY_NANO`, `SWAY_OPTIMIZER`, `SWAY_JUDGE`.
+**Embeddings always use Gemini**; without a Gemini key the semantic cache, context retrieval and learned router switch themselves off.
+
+### All commands
 
 ```bash
-sway bench workloads/default.json
+sway ask "..."                 # full pipeline
+sway ask --no-optimize "..."   # ablate a stage: --no-context --no-route --no-cache --no-escalate
+sway ask --router rules|learned --context-mode full|retrieve --sim 0.95 "..."
+sway ask -m gemini-2.5-flash "..."   # force a model
+sway stats [--verbose]         # recent calls + totals
+sway models                    # known models + prices
+sway serve                     # dashboard: Live, Evaluation, Gateway, Sessions
+sway proxy --budget 1          # OpenAI-compatible gateway, $1/day per project
+sway eval | train-router | cache-eval   # the evidence (see below)
+sway bench workloads/default.json       # v0.1 raw-vs-Sway workload benchmark
 ```
 
-Sends every prompt **twice**: once direct to the flagship model with no Sway
-mechanisms (raw API), once through Sway. Prints a table:
+---
 
-```
-                Raw API    Sway       Savings
-Total cost      $0.4821    $0.1183    75.4%
-Input tokens    284,310    62,840     77.9%
-Output tokens   31,200     29,810     4.5%
-Calls           30         30
-Routing breakdown: nano=22/30 flagship=8/30
-```
-
-The default workload is paraphrase-heavy on purpose — that's where context
-reuse + structured prompting compound most. For a more conservative number,
-write your own workload JSON with diverse tasks.
-
-## Files
-
-- `src/cli.ts` — `sway ask | init | stats | models | bench`
-- `src/context.ts` — sway.md loader + hash
-- `src/optimizer.ts` — Gemini Flash rewriter
-- `src/router.ts` — rule-based tier picker
-- `src/providers.ts` — anthropic / openai / gemini adapters
-- `src/metrics.ts` — SQLite logger at `~/.sway/metrics.db`
-- `src/pricing.ts` — `$/Mtok` table (refresh me)
-- `src/bench.ts` — workload runner + diff printer
-
-## v0.2 — measured, learned, deployable
-
-v0.2 adds evidence and a real gateway. Full plan and rationale: [MAJOR_PLAN.md](MAJOR_PLAN.md).
-
-| Phase | What | Command |
-|---|---|---|
-| 1 | **Quality evaluation** — every answer graded 1–10 by an LLM judge against reference answers; cost vs quality per config | `sway eval` |
-| 2 | **Learned router** — logistic regression on prompt features (+ embeddings) trained from eval grades; weak nano answers escalate to flagship | `sway train-router` |
-| 3 | **Semantic cache** — persistent, embedding-similarity cache; threshold chosen from a labelled near-miss dataset | `sway cache-eval` |
-| 4 | **OpenAI-compatible gateway** — streaming, per-project daily budgets, cost headers | `sway proxy` |
-| 5 | **Context retrieval** — only relevant `sway.md` sections are sent; long chats are summarised | `sway ask --context-mode retrieve` |
-
-### Evaluation workflow
+## Use it from any app (gateway)
 
 ```bash
-sway eval --configs flagship,nano,sway-v01          # baselines + router training labels
-sway train-router                                   # rules vs learned, 5-fold CV, saves ~/.sway/router.json
-sway eval --configs flagship,sway-v01,sway-learned,sway-full
-sway cache-eval                                     # threshold sweep: hit rate vs false-hit rate
-sway eval --list | sway eval --show <runId>
-```
-
-Each `sway eval` run writes `reports/<runId>.md` (tables) and `reports/<runId>.csv` (one row per answer).
-Use `-n 5` for a cheap smoke test.
-
-Configs: `flagship` and `nano` are raw API baselines (no context, no optimizer, 4096-token cap);
-`sway-v01` is the mini-project pipeline; `sway-learned` adds the learned router and escalation;
-`sway-full` adds the semantic cache and context retrieval.
-
-### Gateway
-
-```bash
-sway proxy --budget 1        # $1/day per project
+sway proxy --budget 1
 ```
 
 ```ts
 import OpenAI from "openai";
 const client = new OpenAI({ baseURL: "http://localhost:8788/v1", apiKey: "unused" });
-const r = await client.chat.completions.create({
-  model: "sway-auto",            // or any model from `sway models`
-  messages: [{ role: "user", content: "what is a tuple" }],
-}, { headers: { "x-sway-project": "cs101" } });
+const r = await client.chat.completions.create(
+  { model: "sway-auto", messages: [{ role: "user", content: "what is a tuple" }] },
+  { headers: { "x-sway-project": "cs101" } },
+);
 ```
 
-Response headers: `x-sway-cost-usd`, `x-sway-model`, `x-sway-cache`, `x-sway-overhead-ms`.
-Over budget → HTTP 429. `stream: true` is supported (SSE).
+Response headers: `x-sway-cost-usd`, `x-sway-model`, `x-sway-cache` (hit/miss), `x-sway-overhead-ms`.
+A project over its daily budget gets **HTTP 429**. `stream: true` is supported (SSE).
 
-### New `ask` flags
+---
 
-`--router rules|learned` (default learned; falls back to rules until trained), `--context-mode full|retrieve`,
-`--no-cache`, `--sim <threshold>`, `--no-escalate`.
+## Reproduce the results
 
-### Tests
+```bash
+sway eval --configs flagship,nano,sway-v01             # baselines + router training labels
+sway train-router                                      # rules vs learned, 5-fold CV
+sway eval --configs flagship,sway-v01,sway-learned,sway-full
+sway cache-eval                                        # threshold sweep
+sway eval --list
+sway eval --show <runId>
+```
 
-`npm test` runs unit tests for the parts that don't call an API (regression, cosine, sweep, section split,
-history compression, judge parsing, escalation rules, SSE format, eval aggregation).
+Each run writes `reports/<runId>.md` and `reports/<runId>.csv` (one row per graded answer). Use `-n 5` for a cheap smoke test.
+
+| Config | Meaning |
+|---|---|
+| `flagship`, `nano` | Raw API baselines: no context, no optimizer, 4096-token cap |
+| `sway-v01` | Context + optimizer + rules router |
+| `sway-learned` | + learned router and escalation |
+| `sway-full` | + semantic cache and context retrieval |
+
+---
+
+## Project layout
+
+| File | Role |
+|---|---|
+| `src/cli.ts` | All commands |
+| `src/pipeline.ts` | The shared six-stage pipeline (used by `ask`, `eval`, `proxy`, dashboard) |
+| `src/context.ts` | `sway.md` loading, section retrieval, history compression |
+| `src/optimizer.ts` | Intent classification + prompt rewrite |
+| `src/router.ts`, `src/learned-router.ts` | Rules router and logistic-regression router |
+| `src/semcache.ts`, `src/embeddings.ts` | Semantic cache + threshold sweep |
+| `src/providers.ts` | Gemini / OpenAI / Anthropic / Bedrock adapters, streaming |
+| `src/judge.ts`, `src/eval.ts`, `src/evalstore.ts` | LLM judge and eval harness |
+| `src/proxy.ts` | OpenAI-compatible gateway with budgets |
+| `src/server.ts` | Dashboard |
+| `src/metrics.ts`, `src/pricing.ts` | SQLite logging, $/Mtok table |
+| `evals/` | 40-prompt CS-101 dataset with reference answers; 40 labelled cache pairs |
+| `test/core.test.ts` | Unit tests |
+
+More background: [MAJOR_PLAN.md](MAJOR_PLAN.md) (v0.2 phases and metrics), [research-paper.md](research-paper.md).
+
+---
 
 ## Honest caveats
 
-- Pricing in `src/pricing.ts` is a snapshot — providers update prices quietly.
-  Refresh before reporting numbers in a paper.
-- The optimizer adds one cheap LLM call per request (~$0.0001). On
-  paraphrase-heavy workloads it pays for itself many times over. On a workload
-  of 30 unique-intent prompts, it can cost more than it saves — measure both.
-- BYOK: Sway never sees keys you don't put in your environment, and never
-  proxies them anywhere. Storage is local SQLite at `~/.sway/metrics.db`.
-- The judge is an LLM (default: the flagship model), so it can favour its own answers.
-  Reference answers and temperature 0 reduce this; `--judge` lets you grade with another model family.
-- The router is trained on a few dozen graded prompts from one domain (CS-101). Retrain on your own
-  traffic before trusting it elsewhere.
-- `bench` still uses the v0.1 pipeline; `ask`, `eval`, `proxy` and the `serve` dashboard use the v0.2 pipeline.
-  The dashboard has Live (raw vs Sway with a per-stage trace), Evaluation, Gateway and Sessions tabs.
+- **Small samples.** The published runs use 10–12 prompts from one domain (CS-101). They show the mechanism works; they are not a general benchmark. Run `sway eval` on your own traffic.
+- **LLM judge.** The judge is the flagship model, so it may favour its own answers. Reference answers and temperature 0 reduce this; `--judge` lets you grade with another model family.
+- **Router training data.** The learned router was trained on 12 graded prompts. Retrain on your own data before trusting it elsewhere.
+- **Pricing** in `src/pricing.ts` is a snapshot; refresh it before reporting numbers.
+- **The optimizer adds one cheap call** per request (~$0.0001). On workloads of all-unique, already-tight prompts it can cost more than it saves — ablate with `--no-optimize` and measure.
+- **BYOK, local only.** Keys stay in your environment; all data is in local SQLite at `~/.sway/metrics.db`.
 
 ## License
 
-MIT.
+MIT
