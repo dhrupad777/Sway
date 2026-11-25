@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 let _db: Database.Database | null = null;
 
-function db(): Database.Database {
+export function db(): Database.Database {
   if (_db) return _db;
   const dir = join(homedir(), ".sway");
   mkdirSync(dir, { recursive: true });
@@ -28,13 +28,31 @@ function db(): Database.Database {
       route_tier TEXT,
       context_hash TEXT,
       latency_ms INTEGER,
-      session TEXT
+      session TEXT,
+      cache_hit INTEGER DEFAULT 0,
+      cache_read_tokens INTEGER DEFAULT 0,
+      cache_creation_tokens INTEGER DEFAULT 0,
+      token_budget INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_calls_ts ON calls(ts);
     CREATE INDEX IF NOT EXISTS idx_calls_session ON calls(session);
   `);
-  // Migration: add response_text if upgrading from v0.1.0 schema
-  try { d.exec(`ALTER TABLE calls ADD COLUMN response_text TEXT`); } catch { /* already exists */ }
+  // Migrations: add columns if upgrading from older schemas
+  const migrations = [
+    `ALTER TABLE calls ADD COLUMN response_text TEXT`,
+    `ALTER TABLE calls ADD COLUMN cache_hit INTEGER DEFAULT 0`,
+    `ALTER TABLE calls ADD COLUMN cache_read_tokens INTEGER DEFAULT 0`,
+    `ALTER TABLE calls ADD COLUMN cache_creation_tokens INTEGER DEFAULT 0`,
+    `ALTER TABLE calls ADD COLUMN token_budget INTEGER`,
+    // v0.2
+    `ALTER TABLE calls ADD COLUMN escalated INTEGER DEFAULT 0`,
+    `ALTER TABLE calls ADD COLUMN cache_similarity REAL`,
+    `ALTER TABLE calls ADD COLUMN route_prob REAL`,
+    `ALTER TABLE calls ADD COLUMN project TEXT`,
+  ];
+  for (const sql of migrations) {
+    try { d.exec(sql); } catch { /* column already exists */ }
+  }
   _db = d;
   return d;
 }
@@ -54,14 +72,25 @@ export interface CallRow {
   contextHash: string | null;
   latencyMs: number;
   session: string;
+  cacheHit: boolean;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  tokenBudget: number | null;
+  // v0.2 (optional)
+  escalated?: boolean;
+  cacheSimilarity?: number | null;
+  routeProb?: number | null;
+  project?: string | null;
 }
 
 export function record(row: CallRow): void {
   db().prepare(`
     INSERT INTO calls (ts, raw_prompt, optimized_prompt, response_text, model, provider,
       input_tokens, output_tokens, cost_usd, optimized, routed, route_tier,
-      context_hash, latency_ms, session)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      context_hash, latency_ms, session,
+      cache_hit, cache_read_tokens, cache_creation_tokens, token_budget,
+      escalated, cache_similarity, route_prob, project)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     Date.now(),
     row.rawPrompt,
@@ -78,7 +107,40 @@ export function record(row: CallRow): void {
     row.contextHash,
     row.latencyMs,
     row.session,
+    row.cacheHit ? 1 : 0,
+    row.cacheReadTokens,
+    row.cacheCreationTokens,
+    row.tokenBudget ?? null,
+    row.escalated ? 1 : 0,
+    row.cacheSimilarity ?? null,
+    row.routeProb ?? null,
+    row.project ?? null,
   );
+}
+
+// Spend for one project since a timestamp — used by proxy budgets.
+export function projectSpend(project: string, sinceMs: number): number {
+  const r = db().prepare(
+    `SELECT COALESCE(SUM(cost_usd),0) as c FROM calls WHERE project = ? AND ts >= ?`
+  ).get(project, sinceMs) as { c: number };
+  return r.c;
+}
+
+// Per-project gateway traffic (rows written by `sway proxy`).
+export function projectStats(sinceMs: number): {
+  project: string; calls: number; cost: number; cost_today: number; cache_hits: number; escalations: number; nano: number; last_ts: number;
+}[] {
+  return db().prepare(`
+    SELECT project, COUNT(*) as calls, COALESCE(SUM(cost_usd),0) as cost,
+      COALESCE(SUM(CASE WHEN ts >= ? THEN cost_usd ELSE 0 END),0) as cost_today,
+      COALESCE(SUM(cache_hit),0) as cache_hits, COALESCE(SUM(escalated),0) as escalations,
+      COALESCE(SUM(CASE WHEN route_tier = 'nano' THEN 1 ELSE 0 END),0) as nano, MAX(ts) as last_ts
+    FROM calls WHERE project IS NOT NULL GROUP BY project ORDER BY last_ts DESC
+  `).all(sinceMs) as ReturnType<typeof projectStats>;
+}
+
+export function recentProjectCalls(limit = 25): (StatsRow & { project: string; escalated: number; cache_similarity: number | null; route_prob: number | null })[] {
+  return db().prepare(`SELECT * FROM calls WHERE project IS NOT NULL ORDER BY id DESC LIMIT ?`).all(limit) as ReturnType<typeof recentProjectCalls>;
 }
 
 export function bySession(session: string): StatsRow[] {
@@ -93,23 +155,27 @@ export interface PromptPair {
   savingsPct: number;
 }
 
-// Returns prompts that have BOTH a raw row (routed=0) and a sway row (routed=1).
+// A "sway" row is a routed call (bench) or the Sway side of a dashboard Live run
+// (session ends in _sway, possibly unrouted). A "raw" row is everything else that isn't routed.
+const IS_SWAY = `(routed = 1 OR session LIKE '%\\_sway' ESCAPE '\\')`;
+
+// Returns prompts that have BOTH a raw row and a sway row.
 // For each prompt, pairs the most-recent of each. Newest pairs first.
 export function pairs(limit = 50): PromptPair[] {
   const heads = db().prepare(`
     SELECT raw_prompt as prompt, MAX(ts) as ts
     FROM calls
-    WHERE raw_prompt IS NOT NULL
+    WHERE raw_prompt IS NOT NULL AND project IS NULL
     GROUP BY raw_prompt
-    HAVING SUM(CASE WHEN routed = 0 THEN 1 ELSE 0 END) > 0
-       AND SUM(CASE WHEN routed = 1 THEN 1 ELSE 0 END) > 0
+    HAVING SUM(CASE WHEN NOT ${IS_SWAY} THEN 1 ELSE 0 END) > 0
+       AND SUM(CASE WHEN ${IS_SWAY} THEN 1 ELSE 0 END) > 0
     ORDER BY ts DESC
     LIMIT ?
   `).all(limit) as { prompt: string; ts: number }[];
 
   const out: PromptPair[] = [];
-  const getRaw  = db().prepare(`SELECT * FROM calls WHERE raw_prompt = ? AND routed = 0 ORDER BY ts DESC LIMIT 1`);
-  const getSway = db().prepare(`SELECT * FROM calls WHERE raw_prompt = ? AND routed = 1 ORDER BY ts DESC LIMIT 1`);
+  const getRaw  = db().prepare(`SELECT * FROM calls WHERE raw_prompt = ? AND project IS NULL AND NOT ${IS_SWAY} ORDER BY ts DESC LIMIT 1`);
+  const getSway = db().prepare(`SELECT * FROM calls WHERE raw_prompt = ? AND project IS NULL AND ${IS_SWAY} ORDER BY ts DESC LIMIT 1`);
   for (const h of heads) {
     const raw = getRaw.get(h.prompt) as StatsRow | undefined;
     const sway = getSway.get(h.prompt) as StatsRow | undefined;
@@ -145,6 +211,10 @@ export interface StatsRow {
   context_hash: string | null;
   latency_ms: number;
   session: string;
+  cache_hit: number;
+  cache_read_tokens: number;
+  cache_creation_tokens: number;
+  token_budget: number | null;
 }
 
 export function recent(limit = 50): StatsRow[] {

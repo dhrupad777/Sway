@@ -7,21 +7,21 @@ export interface RouteDecision {
   signals: string[];
 }
 
-const FLAGSHIP_KEYWORDS = [
+export const FLAGSHIP_KEYWORDS = [
   "refactor", "architect", "design", "debug", "trace", "optimize",
   "complex", "deep", "review", "audit", "migrate", "diagnose",
 ];
 
-function approxTokens(s: string): number {
+export function approxTokens(s: string): number {
   // rough: 1 token ~= 4 chars
   return Math.ceil(s.length / 4);
 }
 
-function countCodeBlocks(s: string): number {
+export function countCodeBlocks(s: string): number {
   return (s.match(/```/g)?.length ?? 0) >> 1;
 }
 
-function hasFilePath(s: string): boolean {
+export function hasFilePath(s: string): boolean {
   return /\b[\w./-]+\.(ts|tsx|js|jsx|py|go|rs|java|c|cpp|h|md|json|yaml|yml|sh|sql)\b/.test(s);
 }
 

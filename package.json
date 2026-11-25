@@ -1,7 +1,16 @@
 {
   "name": "sway-llm",
-  "version": "0.1.0",
-  "description": "Cut LLM costs from your terminal: context.md reuse + structured prompting + smart model routing. BYOK.",
+  "version": "0.2.0",
+  "description": "Cost-aware LLM gateway: learned model routing, semantic cache, prompt optimization and context retrieval, with an eval harness to prove quality holds. BYOK.",
+  "author": "dhrupad777",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dhrupad777/Sway.git"
+  },
+  "homepage": "https://github.com/dhrupad777/Sway#readme",
+  "bugs": {
+    "url": "https://github.com/dhrupad777/Sway/issues"
+  },
   "type": "module",
   "bin": {
     "sway": "dist/cli.js"
@@ -9,15 +18,31 @@
   "files": [
     "dist",
     "workloads",
-    "README.md"
+    "evals",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm test && npm run build",
+    "test": "tsx --test test/*.test.ts"
   },
-  "keywords": ["llm", "cost", "anthropic", "openai", "gemini", "cli", "router", "prompt"],
+  "keywords": [
+    "llm",
+    "cost",
+    "anthropic",
+    "openai",
+    "gemini",
+    "cli",
+    "router",
+    "prompt",
+    "gateway",
+    "proxy",
+    "semantic-cache",
+    "llm-eval"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">=20"
@@ -25,7 +50,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.1",
     "@google/generative-ai": "^0.21.0",
-    "better-sqlite3": "^11.3.0",
+    "better-sqlite3": "^12.10.1",
     "commander": "^12.1.0",
     "openai": "^4.73.0"
   },

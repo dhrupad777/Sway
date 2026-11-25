@@ -33,21 +33,21 @@ npx sway-llm <command>
 
 You need keys for at least one provider. Sway supports four:
 
-- **Amazon Bedrock (default)** — long-term API key (bearer token) via
+- **Gemini (default)** — `GEMINI_API_KEY` (or `GOOGLE_API_KEY`). The default
+  config uses it for every role, including embeddings for the semantic cache.
+- **Amazon Bedrock** — long-term API key (bearer token) via
   `AWS_BEARER_TOKEN_BEDROCK` + `AWS_REGION` (default `us-east-1`). Uses Claude
   models on Bedrock; ideal if you have AWS credits.
 - **Anthropic direct** — `ANTHROPIC_API_KEY`
 - **OpenAI** — `OPENAI_API_KEY`
-- **Gemini** — `GEMINI_API_KEY` (or `GOOGLE_API_KEY`). Cheapest option for the
-  optimizer pre-call.
 
 You can either export these in your shell, **or** drop a `.env` file in the
 project root with `KEY=VALUE` lines (one per env var). Sway reads `.env`
 automatically on every command. Shell-set env vars take precedence over
 `.env` if both are present. `.env` is gitignored by default.
 
-The default config (see `src/pricing.ts` → `DEFAULTS`) uses Bedrock for all
-three roles (flagship, nano, optimizer). Switch to a different provider by
+The default config (see `src/pricing.ts` → `DEFAULTS`) uses Gemini 2.5 Pro as
+flagship, 2.5 Flash as nano and 2.5 Flash-Lite as optimizer. Switch to a different provider by
 overriding `DEFAULTS.flagship`/`nano`/`optimizer` to any model in the `PRICING`
 table.
 
@@ -98,6 +98,63 @@ write your own workload JSON with diverse tasks.
 - `src/pricing.ts` — `$/Mtok` table (refresh me)
 - `src/bench.ts` — workload runner + diff printer
 
+## v0.2 — measured, learned, deployable
+
+v0.2 adds evidence and a real gateway. Full plan and rationale: [MAJOR_PLAN.md](MAJOR_PLAN.md).
+
+| Phase | What | Command |
+|---|---|---|
+| 1 | **Quality evaluation** — every answer graded 1–10 by an LLM judge against reference answers; cost vs quality per config | `sway eval` |
+| 2 | **Learned router** — logistic regression on prompt features (+ embeddings) trained from eval grades; weak nano answers escalate to flagship | `sway train-router` |
+| 3 | **Semantic cache** — persistent, embedding-similarity cache; threshold chosen from a labelled near-miss dataset | `sway cache-eval` |
+| 4 | **OpenAI-compatible gateway** — streaming, per-project daily budgets, cost headers | `sway proxy` |
+| 5 | **Context retrieval** — only relevant `sway.md` sections are sent; long chats are summarised | `sway ask --context-mode retrieve` |
+
+### Evaluation workflow
+
+```bash
+sway eval --configs flagship,nano,sway-v01          # baselines + router training labels
+sway train-router                                   # rules vs learned, 5-fold CV, saves ~/.sway/router.json
+sway eval --configs flagship,sway-v01,sway-learned,sway-full
+sway cache-eval                                     # threshold sweep: hit rate vs false-hit rate
+sway eval --list | sway eval --show <runId>
+```
+
+Each `sway eval` run writes `reports/<runId>.md` (tables) and `reports/<runId>.csv` (one row per answer).
+Use `-n 5` for a cheap smoke test.
+
+Configs: `flagship` and `nano` are raw API baselines (no context, no optimizer, 4096-token cap);
+`sway-v01` is the mini-project pipeline; `sway-learned` adds the learned router and escalation;
+`sway-full` adds the semantic cache and context retrieval.
+
+### Gateway
+
+```bash
+sway proxy --budget 1        # $1/day per project
+```
+
+```ts
+import OpenAI from "openai";
+const client = new OpenAI({ baseURL: "http://localhost:8788/v1", apiKey: "unused" });
+const r = await client.chat.completions.create({
+  model: "sway-auto",            // or any model from `sway models`
+  messages: [{ role: "user", content: "what is a tuple" }],
+}, { headers: { "x-sway-project": "cs101" } });
+```
+
+Response headers: `x-sway-cost-usd`, `x-sway-model`, `x-sway-cache`, `x-sway-overhead-ms`.
+Over budget → HTTP 429. `stream: true` is supported (SSE).
+
+### New `ask` flags
+
+`--router rules|learned` (default learned; falls back to rules until trained), `--context-mode full|retrieve`,
+`--no-cache`, `--sim <threshold>`, `--no-escalate`.
+
+### Tests
+
+`npm test` runs unit tests for the parts that don't call an API (regression, cosine, sweep, section split,
+history compression, judge parsing, escalation rules, SSE format, eval aggregation).
+
 ## Honest caveats
 
 - Pricing in `src/pricing.ts` is a snapshot — providers update prices quietly.
@@ -107,6 +164,12 @@ write your own workload JSON with diverse tasks.
   of 30 unique-intent prompts, it can cost more than it saves — measure both.
 - BYOK: Sway never sees keys you don't put in your environment, and never
   proxies them anywhere. Storage is local SQLite at `~/.sway/metrics.db`.
+- The judge is an LLM (default: the flagship model), so it can favour its own answers.
+  Reference answers and temperature 0 reduce this; `--judge` lets you grade with another model family.
+- The router is trained on a few dozen graded prompts from one domain (CS-101). Retrain on your own
+  traffic before trusting it elsewhere.
+- `bench` still uses the v0.1 pipeline; `ask`, `eval`, `proxy` and the `serve` dashboard use the v0.2 pipeline.
+  The dashboard has Live (raw vs Sway with a per-stage trace), Evaluation, Gateway and Sessions tabs.
 
 ## License
 
